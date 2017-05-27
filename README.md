@@ -58,4 +58,32 @@ default via 10.1.0.1 dev eth0
 10.1.0.0/16 dev eth0  proto kernel  scope link  src 10.1.0.3
 ```  
 
-:information_source: Additional ipam configuration options like "gateway" are currently unavailable in version 3. 
+:warning: Additional ipam configuration options like "gateway" are currently unavailable in version 3. 
+
+The main drawback of docker-compose is again its scale of operation, as it is mainly designed to work with a single machine hosting multiple docker containers. To quote the official documentation:
+> Compose is great for development, testing, and staging environments  
+
+To use the above configuration across a number of machines, one must explicitly run: 
+- on host1: ```docker-compose scale web=x```
+- on host2: ```docker-compose scale nodes=y```
+
+where **x** and **y** define how many individual containers are to be run for each "service" on the given host (:warning: there is a naming collision between what is considered a service in docker-compose and in docker in swarm mode).  
+Also note that the above will not work if the _bridge_ network driver is used, though it could work with _macvlan_/_ipvlan_. 
+
+A possible solution to this could be [Docker Stacks](https://docs.docker.com/compose/bundles/) which is an experimental feature that allows to bundle docker-compose files into a "multi-services distributable image format". But it is also very likely that it will become obsoleted by Docker Swarm mode. 
+
+
+## Docker in swarm mode
+
+Docker Swarm mode was developed to address the multi-host nature of most applications. The core idea is to work with image-based services (instead of containers) which include a lot more configuration, most importantly:
+* automated healthchecks
+* dns/network configurations
+* resource requirements
+
+Now a Swarm is actually a cluster of nodes with one or more nodes designated to be managers. Creating a simple swarm out of a number of machines sharing a common network is a very straightforward task. All you need to do is:
+1. run ```docker swarm init``` on the machine designated to be a manager (you will be provided with a join-token)
+2. run ```docker swarm join --token $token```  
+
+Having all this information, the swarm manager can run and manage services on itself and its nodes. Here is an example of how to run a two node swarm using the [Dockerfile](docker-compose/Dockerfile):
+1. build and tag the image: ```docker build --rm -t swarm_example docker-compose/```
+2. create a service out of it: ```docker service create --name app_example swarm_example```
