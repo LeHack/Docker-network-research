@@ -12,8 +12,8 @@ There are three types of network drivers supported out-of-the-box:
 In order to provide communication with external hosts at least one port must be published and linked either to a random or specified port on the host machine (via NAT).
 * **overlay** - allows to create a network which spans multiple docker hosts (using Virtual Extensible LAN tunnels), which can be only used with services (not ordinary containers). Therefore this only applies to running applications in docker swarm mode (more on this below).
 * **macvlan**/**ipvlan** - allows to create a virtual network stacked upon the selected host interface (directly bound to the hardware, thus giving most performance of the three). Multiple VLANs can be created for one physical interface and shared among multiple containers.
-  * macvlan allows for multiple VLAN sub-interfaces with distinct mac/ip addresses (on one interface)
-  * ipvlan allows for multiple VLAN sub-interfaces with a common mac address (allowing to circumvent hardware sub-interface mac count restrictions) with distinct ip addresses (using external DHCP must be coupled with using unique ClientIDs instead of the mac address)  
+    * macvlan allows for multiple VLAN sub-interfaces with distinct mac/ip addresses (on one interface)
+    * ipvlan allows for multiple VLAN sub-interfaces with a common mac address (allowing to circumvent hardware sub-interface mac count restrictions) with distinct ip addresses (using external DHCP must be coupled with using unique ClientIDs instead of the mac address)  
 
 Examples:  
 ```docker network create --driver bridge --subnet 10.1.2.0/24 --gateway=10.1.2.100 test_nw``` - creates a local bridge based network with the given address namespace and gateway (routing)  
@@ -37,19 +37,24 @@ This configuration can then be used to easily manage the whole application.
 
 Example (see full file in examples/docker-compose/docker-compose.yml):  
 1. Network configuration example
->  test_nw:  
->    driver: bridge  
->    ipam:  
->      driver: default  
->      config:  
->        - subnet: 10.1.0.0/16  
-2. Running: ```docker-compose up```  
-3. Testing:  
-```docker exec -it dockertest_nodes_1 ip addr```  
->  ...  
->  inet 10.1.0.3/16 scope global eth0  
->  ...  
-```docker exec -it dockertest_nodes_1 ip route```  
-> default via 10.1.0.1 dev eth0  
->  10.1.0.0/16 dev eth0  proto kernel  scope link  src 10.1.0.3  
+```
+test_nw:  
+  driver: bridge  
+    ipam:  
+    driver: default  
+      config:  
+        - subnet: 10.1.0.0/16
+```  
+2. Run it using ```docker-compose up```  
+3. Tests it using:  
+```
+docker exec -it dockertest_nodes_1 ip addr  
+...  
+inet 10.1.0.3/16 scope global eth0  
+...  
+
+docker exec -it dockertest_nodes_1 ip route  
+default via 10.1.0.1 dev eth0  
+10.1.0.0/16 dev eth0  proto kernel  scope link  src 10.1.0.3
+```  
 
