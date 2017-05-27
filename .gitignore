@@ -1,0 +1,12 @@
+# VirtualEnv
+bin/
+include/
+lib/
+pip-selfcheck.json
+
+# Eclipse
+.project
+.pydevproject
+
+# Python
+*.pyc
