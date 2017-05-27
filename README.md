@@ -35,26 +35,27 @@ To overcome this we can add another layer to our configuration using one of the 
 This is a solution devised to allow for specifying how different docker containers work together as a larger application (including the possibility to define docker networks) via a file called "docker-compose.yml".  
 This configuration can then be used to easily manage the whole application.
 
-Example (see full file in examples/docker-compose/docker-compose.yml):  
-1. Network configuration example
+Example (see full file in [docker-compose/docker-compose.yml](docker-compose/docker-compose.yml)):  
+1. Network configuration example (version 3)
 ```
 test_nw:  
   driver: bridge  
-    ipam:  
+  ipam:  
     driver: default  
-      config:  
-        - subnet: 10.1.0.0/16
+    config:  
+      - subnet: 10.1.0.0/16
 ```  
 2. Run it using ```docker-compose up```  
 3. Tests it using:  
 ```
-docker exec -it dockertest_nodes_1 ip addr  
+$ docker exec -it dockertest_nodes_1 ip addr  
 ...  
 inet 10.1.0.3/16 scope global eth0  
 ...  
 
-docker exec -it dockertest_nodes_1 ip route  
+$ docker exec -it dockertest_nodes_1 ip route  
 default via 10.1.0.1 dev eth0  
 10.1.0.0/16 dev eth0  proto kernel  scope link  src 10.1.0.3
 ```  
 
+:information_source: Additional ipam configuration options like "gateway" are currently unavailable in version 3. 
