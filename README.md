@@ -109,10 +109,11 @@ A possible solution to this could be [Docker Stacks](https://docs.docker.com/com
 
 ### Ansible-playbook (with Docker Registry)
 
-[Ansible](https://docs.ansible.com/ansible/index.html) is basically an supercharged SSH client with loads of modules that can be used to perform and assert certain configuration tasks like creating users and paths, ensuring correct permissions and configurations, sending notifications via a plethora of messaging solutions (e-mail, sms, slack etc.) ...and handling docker.
+[Ansible](https://docs.ansible.com/ansible/index.html) is basically a supercharged SSH client with loads of modules that can be used to perform and assert certain configuration tasks like creating users and paths, ensuring correct permissions and configurations, sending notifications via a plethora of messaging solutions (e-mail, sms, slack etc.) ...and handling docker.
 
 Thus an even better approach is to take advantage of an Ansible playbook, which is a group of tasks (also called a scenario) that can be run using Ansible on a set of machines in parallel.  
-An example of how this could be achieved can be found in the [ansible-playbook](ansible-playbook/) directory. This example is composed of:
+An example of how this could be achieved can be found in the [ansible-playbook](ansible-playbook/) directory.  
+This example is composed of:  
 - [deploy.yml](ansible-playbook/deploy.yml) - the playbook (scenario)
 - [testing/inventory](ansible-playbook/testing/inventory) - list of staging hosts that we want to deploy to
 - [testing/group_vars/all](ansible-playbook/testing/group_vars/all) - common settings for testing machines
@@ -120,8 +121,8 @@ An example of how this could be achieved can be found in the [ansible-playbook](
 - [production/group_vars/all](ansible-playbook/production/group_vars/all) - common settings for production machines
 - [production/host_vars/web-back2.prod](ansible-playbook/production/host_vars/web-back2.prod) - some very specific settings override for the web-back2.prod and web-back3.prod machines (note that [host_vars/web-back3.prod](ansible-playbook/production/host_vars/web-back3.prod) can be a symlink)
 
-Now in order to run a playbook deployment, you need to follow these steps four:
-1. [Prepare at least one virtual machine](#virtual-machine) (with host connectivity) and docker installed.
+Now in order to run a playbook deployment, you need to follow these steps:
+1. [Prepare at least one virtual machine](#virtual-machine) with host connectivity and docker installed.
 2. [Setup a docker registry on your host](#docker-registry)
 3. Update the host names (in the inventory files) in the above example to point to correct host names (make sure your virtual machine has a **resolvable** hostname assigned and that you can ping it from your host).
 4. [Perform the deployment using ansible-playbook](#deployment).
@@ -131,18 +132,16 @@ There are [plenty](http://www.itworld.com/article/2919329/virtualization/how-to-
 
 #### Docker registry
 This part is actually [pretty well explained here](https://docs.docker.com/registry/deploying/) with the only exception, that we want to have the registry to be reachable from within our VBox host-only network. The simplest way to achieve this is to change dockerd run params (DOCKER_OPTS in /etc/default/docker on Ubuntu) to contain the following two params:  
-```
--H 10.0.0.1  
---insecure-registry 10.0.0.1:5000  
-```  
+```-H 10.0.0.1 --insecure-registry 10.0.0.1:5000```  
 and restart the docker service.  
 
 :warning: Of course "10.0.0.1" is only an example and you should replace this with the IP of the interface to which your Virtual machines are bridged. The important part is to make sure that the docker registry and the deployment nodes can reach each other.
 
-:warning: The same **insecure-registry** option must be also set in the Virtual machine docker. Of course this is only acceptable for learning purposes. For any kind of real-world usage you **must** generate some SSL certificates and set it up with HTTPS enabled.
+:warning: The same **insecure-registry** option must be also set in the Virtual machine docker. Be aware that this is only acceptable for learning purposes. For any kind of real-world usage you **must** generate some SSL certificates and set it up with HTTPS enabled.
 
 :warning: From this moment, docker will be only available via the specified IP (not via sock), so you must make sure that you set the environment variable DOCKER_HOST to the appropriate IP, e.g.:  
 ```export DOCKER_HOST=10.0.0.1:2375```
+
 
 Finally we can fire up the registry container as described in the tutorial:  
 ```docker run -d -p 5000:5000 --restart=always --name registry registry:2```  
