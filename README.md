@@ -1,6 +1,6 @@
 # Docker-network-research from a DevOps point of view
 
-The goal of this project is to understand the concepts behind docker networking and how multi-container networks can be managed.
+The goal of this project was to understand the concepts behind docker networking and how multi-container, multi-host application can be managed using Docker and Ansible tools.
 
 ## Index:
 1. [Quick introduction to Docker](#quick-introduction-to-docker)
@@ -27,16 +27,16 @@ All of the steps necessary to perform this installation need to be described in 
 You can build the provided example [Dockerfile](docker-compose/Dockerfile) by running:  
 ```docker build --rm -t app_example_image docker-compose```
 
-Now if we would want to run this image, we have to start a container which is actually a copy of the created image. Any changes inside the container will live as long as the container does (you can start/pause/stop or remove it at any time). You can also attach [Volumes](https://docs.docker.com/engine/tutorials/dockervolumes/) to share directories between your host and the docker containers.  
-Furthermore, we can run multiple containers of the same image at the same time in different arrangements (e.g. attached to different physical networks or with different ports exposed) and we will always get the same base system from the image.  
-Finally we can also decide to "commit" a running container to an existing or a completely new image (think of it as: _Save_ vs _Save as_) to create a new snapshot from which you'll be able to create new containers.
+Now if we would want to run this image, we have to start a container which is actually a copy of the created image. Any changes inside the container will live as long as the container does (you can start/pause/stop or remove it at any time).  
+It is common to create one image and then run it in a number of containers (usually dispersed among a number of physical hosts) which allows for easy scaling of an application. Furthermore, each container can easily be run with different parameters, expose different ports or be attached to a different network.  
+Finally we can also decide to "commit" a running container to an existing or a completely new image (think of it as: _Save_ vs _Save as_) to create a new snapshot from which you'll be able to create other containers (see ```docker commit --help```).  
 
 ## Configuration layer 1
 
-To effectively manage the process of deploying applications (both for testing as for production purposes) we have to be able to automate it in a highly deterministic manner, which will allow us to test and find bugs in the deployment process itself before they hurt our production servers.  
-To achieve that, we need to separate all of the tasks into a number of layers. The bigger the application, the more layers may be required to keep maintenance and operation costs at a minimum.  
-The first layer is actually a Dockerfile which allows us to encapsulate the application code inside an image. For very small deployments, a single container may prove to be enough. Despite that, it is recommended to separate **different responsibilities** into **different containers** to be able to manage them effectively without bringing down the whole application each time we need to update the code or change configuration of one of the components. At the same time we should avoid logging into any running containers (for reasons other than debugging) and should ensure that we can simply restart them from a newly built image.  
-This keeps the update process relatively easy and simple and will allow to spot most issues early on, even allowing for a fast rollback in the event that we encounter any serious issues with the new image.
+To effectively manage the process of deploying applications (both for testing and production purposes) we have to be able to automate it in a highly deterministic manner, which will allow us to test and find bugs in the deployment process itself before they hurt our production servers.  
+To achieve that, we need to separate all of the deployment tasks into a number of layers. The bigger the application, the more layers may be required to keep maintenance and operation costs at a minimum.  
+The first layer is actually the already mentioned Dockerfile which allows us to encapsulate the application code inside an image. For very small deployments, a single container may prove to be enough. It is however recommended to separate **different responsibilities** into **different containers** to be able to manage them effectively without bringing down the whole application each time we need to update the code or change configuration of one of the components. At the same time we should avoid logging into any running containers (for reasons other than debugging) and should ensure that we can simply restart them from a newly built image.  
+This keeps the update process relatively easy and simple and will allow to spot most issues early on. It might even allow for a quick rollback in the event that we encounter any serious issues after releasing a new version of our application.
 
 ### Docker networking
 
@@ -48,15 +48,15 @@ In order to provide communication with external hosts at least one port must be 
 * **overlay** - allows to create a network which spans multiple docker hosts (using Virtual Extensible LAN tunnels), which can be only used with services (not ordinary containers). Therefore this only applies to running applications in docker swarm mode ([more on this below](#docker-in-swarm-mode)).
 * **macvlan**/**ipvlan** - allows to create a virtual network stacked upon the selected host interface (directly bound to the hardware, thus giving most performance of the three). Multiple VLANs can be created for one physical interface and shared among multiple containers.
     * macvlan allows for multiple VLAN sub-interfaces with distinct mac/ip addresses (on one interface)
-    * ipvlan allows for multiple VLAN sub-interfaces with a common mac address (allowing to circumvent hardware sub-interface mac count restrictions) with distinct ip addresses (using external DHCP must be coupled with using unique ClientIDs instead of the mac address)  
+    * ipvlan allows for multiple VLAN sub-interfaces with a common mac address (allowing to circumvent hardware sub-interface mac count restrictions) with distinct IP addresses (in the case of an external DHCP you must switch to using unique ClientIDs instead of the mac address)  
 
 Examples:  
 ```docker network create --driver bridge --subnet 10.1.2.0/24 --gateway=10.1.2.100 test_nw``` - creates a local bridge based network with the given address namespace and gateway (routing)  
-```docker run -it --network test_nw dockertest_web_1``` - runs a container from "dockertest\_web\_1" image using the created network (including correctly setup address and routing) 
+```docker run -it --network test_nw app_example_image``` - runs a container from the "app\_example\_image" using the created network (including correctly setup address and routing)  
 
 
 From a devops point of view, the above is good and bad at the same time. The good part is that we can provide all application components with a network sufficiently customized to their needs. The bad part is that the appropriate commands need to be executed (with the exception of overlay + swarm) every time we setup a docker host.  
-This may become a problem when were dealing with multiple machines and want our configuration to be well defined and reusable without having to rely on manually crafted bash scripts.
+This may become a problem when were dealing with multiple machines as we should aim to keep our configuration simple, well defined and reusable without having to rely on manually crafted scripts and solutions.
 
 ## Configuration layer 2
 
@@ -82,19 +82,19 @@ test_nw:
 2. Run it using ```docker-compose up```  
 3. Tests it using:  
 ```
-$ docker exec -it dockertest_nodes_1 ip addr  
+$ docker exec -it app_example_image ip addr  
 ...  
 inet 10.1.0.3/16 scope global eth0  
 ...  
 
-$ docker exec -it dockertest_nodes_1 ip route  
+$ docker exec -it app_example_image ip route  
 default via 10.1.0.1 dev eth0  
 10.1.0.0/16 dev eth0  proto kernel  scope link  src 10.1.0.3
 ```  
 
 :warning: Additional ipam configuration options like "gateway" are currently unavailable in version 3. 
 
-The main drawback of docker-compose is again its scale of operation, as it is mainly designed to work with a single machine hosting multiple docker containers. To quote the official documentation:
+The main drawback of docker-compose is its scale of operation, as it is mainly designed to work with a single machine hosting multiple docker containers. To quote the official documentation:
 > Compose is great for development, testing, and staging environments  
 
 To use the above configuration across a number of machines, one must explicitly run: 
