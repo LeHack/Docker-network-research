@@ -1,0 +1,13 @@
+[front]
+web-front1.prod
+web-front2.prod
+web-front3.prod
+web-front4.prod
+
+[back]
+web-back1.prod
+web-back2.prod
+web-back3.prod
+web-back4.prod
+web-back5.prod
+web-back6.prod

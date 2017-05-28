@@ -1,0 +1,6 @@
+--- 
+DOCKER_HOST: 10.0.0.1:2375
+registry_url: 10.0.0.1:5000
+image_name: app_example_image
+image_tag: v1
+run_command: python3 /project/manage.py runserver 0.0.0.0:8000

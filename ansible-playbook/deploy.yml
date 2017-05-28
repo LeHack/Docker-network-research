@@ -1,0 +1,40 @@
+--- 
+- name: Prepare application image
+  gather_facts: no
+  hosts: localhost
+  environment:
+    DOCKER_HOST: "{{ DOCKER_HOST }}"
+  tasks:
+    - name: Build an image and push it to the registry
+      docker_image:
+        path: ../docker-compose
+        name: "{{ registry_url }}/{{ image_name }}"
+        tag: "{{ image_tag }}"
+        push: yes
+
+- name: Deploy application image
+  gather_facts: no
+  hosts: all
+  tasks:
+    - name: Copy requirements.txt to remote hosts
+      copy:
+        src: requirements.txt
+        dest: /tmp/requirements.txt
+    - name: Make sure python requirements are met
+      pip:
+        requirements: /tmp/requirements.txt
+    - name: Pull the docker image from the registry
+      docker_image:
+        name: "{{ registry_url }}/{{ image_name }}:{{ image_tag }}"
+        repository: "{{ registry_url }}"
+        use_tls: no
+        state: present
+    - name: Create a container and run it
+      docker_container:
+        name: app_example
+        image: "{{ registry_url }}/{{ image_name }}:{{ image_tag }}"
+        command: "{{ run_command }}"
+        state: started
+        restart: yes
+        ports:
+          - "80:8000"
