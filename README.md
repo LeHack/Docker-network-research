@@ -51,11 +51,11 @@ In order to provide communication with external hosts at least one port must be 
     * ipvlan allows for multiple VLAN sub-interfaces with a common mac address (allowing to circumvent hardware sub-interface mac count restrictions) with distinct IP addresses (in the case of an external DHCP you must switch to using unique ClientIDs instead of the mac address)  
 
 Examples:  
-```docker network create --driver bridge --subnet 10.1.2.0/24 --gateway=10.1.2.100 test_nw``` - creates a local bridge based network with the given address namespace and gateway (routing)  
+```docker network create --driver bridge --subnet 10.1.4.0/24 --gateway=10.1.4.100 test_nw``` - creates a local bridge based network with the given address namespace and gateway (routing)  
 ```docker run -it --network test_nw app_example_image``` - runs a container from the "app\_example\_image" using the created network (including correctly setup address and routing)  
 
 
-From a devops point of view, the above is good and bad at the same time. The good part is that we can provide all application components with a network sufficiently customized to their needs. The bad part is that the appropriate commands need to be executed (with the exception of overlay + swarm) every time we setup a docker host.  
+From a DevOps point of view, the above is good and bad at the same time. The good part is that we can provide all application components with a network sufficiently customized to their needs. The bad part is that the appropriate commands need to be executed (with the exception of overlay + swarm) every time we setup a docker host.  
 This may become a problem when were dealing with multiple machines as we should aim to keep our configuration simple, well defined and reusable without having to rely on manually crafted scripts and solutions.
 
 ## Configuration layer 2
@@ -77,22 +77,36 @@ test_nw:
   ipam:  
     driver: default  
     config:  
-      - subnet: 10.1.0.0/16
+      - subnet: 10.1.4.0/24
 ```  
-2. Run it using ```docker-compose up```  
-3. Tests it using:  
+2. Run it using ```docker-compose up``` (from within the docker-compose directory)  
+3. Note that the container names are generated automatically from project directory, service name and instance number:  
+```docker container ls```  
+4. Check dockercompose\_nodes\_1, which is now attached to both configured networks:  
 ```
-$ docker exec -it app_example_image ip addr  
-...  
-inet 10.1.0.3/16 scope global eth0  
-...  
+$ docker exec -it dockercompose_nodes_1 ip addr | grep -E "inet.+eth"  
+    inet 10.1.4.3/24 scope global eth0  
+    inet 10.2.3.2/24 scope global eth1  
 
-$ docker exec -it app_example_image ip route  
-default via 10.1.0.1 dev eth0  
-10.1.0.0/16 dev eth0  proto kernel  scope link  src 10.1.0.3
+$ docker exec -it dockercompose_nodes_1 ip route  
+default via 10.1.4.1 dev eth0  
+10.1.4.0/24 dev eth0  proto kernel  scope link  src 10.1.4.3   
+10.2.3.0/24 dev eth1  proto kernel  scope link  src 10.2.3.2  
+
+$ docker exec -it dockercompose_nodes_1 ping -c 1 10.1.4.2  
+PING 10.1.4.2 (10.1.4.2): 56 data bytes  
+64 bytes from 10.1.4.2: icmp_seq=0 ttl=64 time=0.270 ms  
+
+$ docker exec -it dockercompose_nodes_1 ping -c 1 10.2.3.1  
+PING 10.2.3.1 (10.2.3.1): 56 data bytes  
+64 bytes from 10.2.3.1: icmp_seq=0 ttl=64 time=0.172 ms  
 ```  
 
-:warning: Additional ipam configuration options like "gateway" are currently unavailable in version 3. 
+:warning: Additional ipam configuration options like "gateway" are currently unavailable in version 3. Thus to get the same network as in the previous example, we need to set it manually inside each container, e.g.:  
+```docker container ls --format "{{.Names}}" | xargs -n 1 -iCNT docker exec --privileged CNT su -c "ip route del default && ip route add default via 10.1.4.100"```  
+Also note the _--privileged_ flag when running _docker exec_. You must grant extra permissions to the _exec_ command, otherwise routing cannot be altered from a container (which is actually a good thing).
+
+:warning: If you modify your [docker-compose.yml](docker-compose/docker-compose.yml) network configuration and try to run ```docker-compose up``` again, it will use the already existing networks (built during the first launch). In order to update the new configuration, you have to remove the existing networks using (in this example): ```docker network rm dockercompose_test_nw dockercompose_test_nw2```  
 
 The main drawback of docker-compose is its scale of operation, as it is mainly designed to work with a single machine hosting multiple docker containers. To quote the official documentation:
 > Compose is great for development, testing, and staging environments  
@@ -173,18 +187,21 @@ Have no fear, that's exactly where the third configuration layer comes in to tak
 
 ### Docker in swarm mode
 
-Docker Swarm mode was developed to address the multi-host nature of most applications. The core idea is to work with image-based services (instead of containers) which include a lot more configuration, most importantly:
-* automated healthchecks
+Docker Swarm mode was developed to address the multi-host nature of most large applications. The core idea is to work with image-based services which replace the use of containers and include a lot more configuration, most importantly:
+* automated health checks
 * dns/network configurations
 * resource requirements
 
-Now a Swarm is actually a cluster of nodes with one or more nodes designated to be managers. Creating a simple swarm out of a number of machines sharing a common network is a very straightforward task. All you need to do is:
-1. run ```docker swarm init``` on the machine designated to be a manager (you will be provided with a join-token)
-2. run ```docker swarm join --token $token```  
+A swarm is actually a cluster of nodes with one or more nodes designated to be managers. Creating a simple swarm out of a number of machines sharing a common network is a very straightforward task. All you need to do is:
+1. run ```docker swarm init``` on the machine designated to be a manager
+2. run ```docker swarm join --token $TOKEN $MANAGER_IP:2377``` (you will be provided with the join command when running init)  
 
 Having all this information, the swarm manager can run and manage services on itself and its nodes. Here is an example of how to run a two node swarm using the [Dockerfile](docker-compose/Dockerfile):
-1. build and tag the image: ```docker build --rm -t swarm_example docker-compose/```
-2. create a service out of it: ```docker service create --name app_example swarm_example```
+1. [build and tag the image](#quick-introduction-to-docker)
+2. create a service out of it: ```docker service create --name service_example app_example_image```
+...
+
+:warning: Important quote from the docs: "For testing purposes it is OK to run a swarm with a single manager. If the manager in a single-manager swarm fails, your services will continue to run, but you will need to create a new cluster to recover."
 
 ### Ansible-container
 
