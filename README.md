@@ -182,8 +182,34 @@ After all we have Ansible modules which can do all of it for us, in parallel, on
 Inspect the [deploy.yml](ansible-playbook/deploy.yml) and the [testing/group_vars/all](ansible-playbook/testing/group_vars/all) (remember to update the IP address). If everything looks right, just run and enjoy:  
 ```ansible-playbook -i testing deploy.yml```  
 
-When it's done, go to port 80 of the deployment host and verify that you see the testing page.
+When it's done, go to port 80 of the deployment host and verify that you see the testing page.  
+You can verify the settings using... you guessed it, Ansible!
+```
+$ ansible back -i testing -m shell -a "docker container ls --format 'table {%raw%}{{.Image}}\t{{.Names}}\t{{.Ports}}\t{{.Networks}}{%endraw%}' && docker exec app_example_nodes ip route"  
+web-back1.testing | SUCCESS | rc=0 >>  
+IMAGE                                    NAMES               PORTS                         NETWORKS  
+192.168.1.10:5000/app_example_image:v3   app_example_nodes   239.255.0.42:8000->8000/tcp   test_nw,test_nw2  
+192.168.1.10:5000/app_example_image:v3   app_example_web     0.0.0.0:80->8000/tcp          test_nw  
+default via 10.1.4.100 dev eth0  
+10.1.4.0/24 dev eth0  proto kernel  scope link  src 10.1.4.2  
+10.2.3.0/24 dev eth1  proto kernel  scope link  src 10.2.3.2  
 
+web-back2.testing | SUCCESS | rc=0 >>  
+IMAGE                                    NAMES               PORTS                         NETWORKS  
+192.168.1.10:5000/app_example_image:v3   app_example_nodes   239.255.0.42:8000->8000/tcp   test_nw,test_nw2  
+192.168.1.10:5000/app_example_image:v3   app_example_web     0.0.0.0:80->8000/tcp          test_nw  
+default via 10.1.4.100 dev eth0  
+10.1.4.0/24 dev eth0  proto kernel  scope link  src 10.1.4.2  
+10.2.3.0/24 dev eth1  proto kernel  scope link  src 10.2.3.2  
+
+web-back3.testing | SUCCESS | rc=0 >>  
+IMAGE                                    NAMES               PORTS                         NETWORKS  
+192.168.1.10:5000/app_example_image:v3   app_example_nodes   239.255.0.42:8000->8000/tcp   test_nw2,test_nw  
+192.168.1.10:5000/app_example_image:v3   app_example_web     0.0.0.0:80->8000/tcp          test_nw  
+default via 10.1.4.100 dev eth0  
+10.1.4.0/24 dev eth0  proto kernel  scope link  src 10.1.4.2  
+10.2.3.0/24 dev eth1  proto kernel  scope link  src 10.2.3.2  
+```
 
 ## Configuration layer 3
 
