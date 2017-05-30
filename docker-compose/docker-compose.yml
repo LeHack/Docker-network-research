@@ -3,7 +3,6 @@ version: '3'
 services:
   web:
     build: .
-    command: [python3, /project/manage.py, runserver, "0.0.0.0:8000"]
     networks:
       - "test_nw"
 

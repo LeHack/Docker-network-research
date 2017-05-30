@@ -69,7 +69,8 @@ To efficiently manage multi-container and/or multi-instance deployments, we can 
 This is a solution devised to allow for specifying how different docker containers work together as a larger application (including a slightly limited possibility to define and create docker networks) via a file called "docker-compose.yml".  
 This configuration can then be used to easily manage the whole application.
 
-Example (see full file in [docker-compose/docker-compose.yml](docker-compose/docker-compose.yml)):  
+#### Docker-compose example
+See full file in [docker-compose/docker-compose.yml](docker-compose/docker-compose.yml):  
 1. Network configuration example (version 3)
 ```
 test_nw:  
@@ -81,7 +82,12 @@ test_nw:
 ```  
 2. Run it using ```docker-compose up``` (from within the docker-compose directory)  
 3. Note that the container names are generated automatically from project directory, service name and instance number:  
-```docker container ls```  
+```
+$ docker container ls --format "table {{.ID}}\t{{.Image}}\t{{.Names}}\t{{.Networks}}"  
+CONTAINER ID        IMAGE                 NAMES                   NETWORKS  
+cf1c4e51ab0b        dockercompose_nodes   dockercompose_nodes_1   dockercompose_test_nw,dockercompose_test_nw2  
+a9f9361f75b1        dockercompose_web     dockercompose_web_1     dockercompose_test_nw  
+```  
 4. Check dockercompose\_nodes\_1, which is now attached to both configured networks:  
 ```
 $ docker exec -it dockercompose_nodes_1 ip addr | grep -E "inet.+eth"  
@@ -108,6 +114,8 @@ Also note the _--privileged_ flag when running _docker exec_. You must grant ext
 
 :warning: If you modify your [docker-compose.yml](docker-compose/docker-compose.yml) network configuration and try to run ```docker-compose up``` again, it will use the already existing networks (built during the first launch). In order to update the new configuration, you have to remove the existing networks using (in this example): ```docker network rm dockercompose_test_nw dockercompose_test_nw2```  
 
+
+#### Summary
 The main drawback of docker-compose is its scale of operation, as it is mainly designed to work with a single machine hosting multiple docker containers. To quote the official documentation:
 > Compose is great for development, testing, and staging environments  
 
@@ -142,7 +150,7 @@ Now in order to run a playbook deployment, you need to follow these steps:
 4. [Perform the deployment using ansible-playbook](#deployment).
 
 #### Virtual Machine
-There are [plenty](http://www.itworld.com/article/2919329/virtualization/how-to-setup-and-create-your-own-virtualbox-linux-machines.html) of [guides](http://www.brianlinkletter.com/how-to-use-virtualbox-to-emulate-a-network/) on how to setup up a simple virtual machine, so I won't be covering that part here. But from my own experience I can recommend using VirtualBox with a bridged network and a very basic Ubuntu server (make sure to install "python-pip").
+There are [plenty](http://www.itworld.com/article/2919329/virtualization/how-to-setup-and-create-your-own-virtualbox-linux-machines.html) of [guides](http://www.brianlinkletter.com/how-to-use-virtualbox-to-emulate-a-network/) on how to setup up a simple virtual machine, so I won't be covering that part here. From my own experience I can recommend using VirtualBox with a bridged network and a very basic Ubuntu server (make sure to install "python-pip").
 
 #### Docker registry
 This part is actually [pretty well explained here](https://docs.docker.com/registry/deploying/) with the only exception, that we want to have the registry to be reachable from within our VBox host-only network. The simplest way to achieve this is to change dockerd run params (DOCKER_OPTS in /etc/default/docker on Ubuntu) to contain the following two params:  
@@ -159,20 +167,20 @@ and restart the docker service.
 
 Finally we can fire up the registry container as described in the tutorial:  
 ```docker run -d -p 5000:5000 --restart=always --name registry registry:2```  
-**or** using docker-compose, you can also go to [docker-registry dir](docker-registry) and run:  
-```docker-compose up -d```
+**or** leave it to our deployment playbook below...
 
 #### Deployment
 Now before we actually deploy anything, we need to have something to deploy. If you followed the steps in [the docker introduction](#quick-introduction-to-docker) you should have an "app\_example\_image" image ready.  
 To push it to our local registry, we _could_ run:
-* ```docker tag app_example_image 10.0.0.1:5000/app_example_image```  
-* ```docker push 10.0.0.1:5000/app_example_image```  
-followed by ```docker pull 10.0.0.1:5000/app_example_image``` from each host to fetch the image from the registry.  
+* ```docker tag app_example_image 10.0.0.1:5000/app_example_image``` - to properly tag the existing image for use via the registry  
+* ```docker push 10.0.0.1:5000/app_example_image``` - to push the image layers into the registry   
+* ```docker pull 10.0.0.1:5000/app_example_image``` - to fetch the image from the registry on each deployment machine   
+* and finally [a variation of the commands from docker-compose example](docker-compose-example) to setup the network
 
 But where's the fun in that?  
 After all we have Ansible modules which can do all of it for us, in parallel, on all configured hosts and then automatically run the image as containers.  
 Inspect the [deploy.yml](ansible-playbook/deploy.yml) and the [testing/group_vars/all](ansible-playbook/testing/group_vars/all) (remember to update the IP address). If everything looks right, just run and enjoy:  
-```ansible-playbook -i testing/ deploy.yml```  
+```ansible-playbook -i testing deploy.yml```  
 
 When it's done, go to port 80 of the deployment host and verify that you see the testing page.
 

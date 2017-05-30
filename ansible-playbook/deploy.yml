@@ -1,16 +1,25 @@
 --- 
-- name: Prepare application image
+- name: Setup registry and prepare the application image
   gather_facts: no
   hosts: localhost
   environment:
     DOCKER_HOST: "{{ DOCKER_HOST }}"
   tasks:
+    - name: Ensure the registry container is up and running
+      docker_container:
+        name: registry
+        image: registry:2
+        state: started
+        ports:
+          - "5000:5000"
+
     - name: Build an image and push it to the registry
       docker_image:
         path: ../docker-compose
-        name: "{{ registry_url }}/{{ image_name }}"
-        tag: "{{ image_tag }}"
+        name: "{{ REGISTRY_URL }}/{{ IMAGE_NAME }}"
+        tag: "{{ IMAGE_TAG }}"
         push: yes
+
 
 - name: Deploy application image
   gather_facts: no
@@ -20,21 +29,64 @@
       copy:
         src: requirements.txt
         dest: /tmp/requirements.txt
+
     - name: Make sure python requirements are met
       pip:
         requirements: /tmp/requirements.txt
+
     - name: Pull the docker image from the registry
       docker_image:
-        name: "{{ registry_url }}/{{ image_name }}:{{ image_tag }}"
-        repository: "{{ registry_url }}"
+        name: "{{ REGISTRY_URL }}/{{ IMAGE_NAME }}:{{ IMAGE_TAG }}"
+        repository: "{{ REGISTRY_URL }}"
         use_tls: no
         state: present
-    - name: Create a container and run it
+
+    - name: Setup the first network
+      docker_network:
+        name: test_nw
+        ipam_options:
+          subnet: '10.1.4.0/24'
+          gateway: 10.1.4.100
+
+    - name: Setup the second network
+      docker_network:
+        name: test_nw2
+        ipam_options:
+          subnet: '10.2.3.0/24'
+
+    - name: Create the web container and run it
       docker_container:
-        name: app_example
-        image: "{{ registry_url }}/{{ image_name }}:{{ image_tag }}"
-        command: "{{ run_command }}"
+        name: app_example_web
+        image: "{{ REGISTRY_URL }}/{{ IMAGE_NAME }}:{{ IMAGE_TAG }}"
         state: started
         restart: yes
+        purge_networks: yes
+        networks:
+          - name: test_nw
         ports:
           - "80:8000"
+
+    - name: Create the nodes container and run it
+      docker_container:
+        name: app_example_nodes
+        image: "{{ REGISTRY_URL }}/{{ IMAGE_NAME }}:{{ IMAGE_TAG }}"
+        state: started
+        restart: yes
+        purge_networks: yes
+        networks:
+          - name: test_nw
+          - name: test_nw2
+        ports:
+          - 239.255.0.42:8000:8000
+
+
+- name: Shutdown the registry
+  gather_facts: no
+  hosts: localhost
+  environment:
+    DOCKER_HOST: "{{ DOCKER_HOST }}"
+  tasks:
+    - name: Shutdown and remove the registry container
+      docker_container:
+        name: registry
+        state: absent
