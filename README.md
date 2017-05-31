@@ -45,7 +45,7 @@ The ```docker network create``` command allows us to create a network which can 
 There are three types of network drivers supported out-of-the-box:
 * **bridge** - allows to create isolated networks shared by all locally run containers.  
 In order to provide communication with external hosts at least one port must be published and linked either to a random or specified port on the host machine (via NAT).
-* **overlay** - allows to create a network which spans multiple docker hosts (using Virtual Extensible LAN tunnels), which can be only used with services (not ordinary containers). Therefore this only applies to running applications in docker swarm mode ([more on this below](#docker-in-swarm-mode)).
+* **overlay** - allows to create a network which spans multiple docker hosts (using Virtual Extensible LAN tunnels), which can be only used with services (not ordinary containers). Therefore this _mostly_ applies to running applications in docker swarm mode ([more on this below](#docker-in-swarm-mode)).
 * **macvlan**/**ipvlan** - allows to create a virtual network stacked upon the selected host interface (directly bound to the hardware, thus giving most performance of the three). Multiple VLANs can be created for one physical interface and shared among multiple containers.
     * macvlan allows for multiple VLAN sub-interfaces with distinct mac/ip addresses (on one interface)
     * ipvlan allows for multiple VLAN sub-interfaces with a common mac address (allowing to circumvent hardware sub-interface mac count restrictions) with distinct IP addresses (in the case of an external DHCP you must switch to using unique ClientIDs instead of the mac address)  
@@ -182,34 +182,131 @@ After all we have Ansible modules which can do all of it for us, in parallel, on
 Inspect the [deploy.yml](ansible-playbook/deploy.yml) and the [testing/group_vars/all](ansible-playbook/testing/group_vars/all) (remember to update the IP address). If everything looks right, just run and enjoy:  
 ```ansible-playbook -i testing deploy.yml```  
 
+:arrow_right: You can run the above command multiple times, correcting any issues as you go. Most of the modules used in the playbook can verify their current state before taking any action. Thus if a tasks goal is already met, you'll see a green "[ok]" next to it's hostname.  
+
 When it's done, go to port 80 of the deployment host and verify that you see the testing page.  
 You can verify the settings using... you guessed it, Ansible!
 ```
 $ ansible back -i testing -m shell -a "docker container ls --format 'table {%raw%}{{.Image}}\t{{.Names}}\t{{.Ports}}\t{{.Networks}}{%endraw%}' && docker exec app_example_nodes ip route"  
 web-back1.testing | SUCCESS | rc=0 >>  
 IMAGE                                    NAMES               PORTS                         NETWORKS  
-10.0.0.1:5000/app_example_image:v3   app_example_nodes   239.255.0.42:8000->8000/tcp   test_nw,test_nw2  
-10.0.0.1:5000/app_example_image:v3   app_example_web     0.0.0.0:80->8000/tcp          test_nw  
+10.0.0.1:5000/app_example_image:v3       app_example_nodes   239.255.0.42:8000->8000/tcp   test_nw,test_nw2  
+10.0.0.1:5000/app_example_image:v3       app_example_web     0.0.0.0:80->8000/tcp          test_nw  
 default via 10.1.4.100 dev eth0  
 10.1.4.0/24 dev eth0  proto kernel  scope link  src 10.1.4.2  
 10.2.3.0/24 dev eth1  proto kernel  scope link  src 10.2.3.2  
 
 web-back2.testing | SUCCESS | rc=0 >>  
 IMAGE                                    NAMES               PORTS                         NETWORKS  
-10.0.0.1:5000/app_example_image:v3   app_example_nodes   239.255.0.42:8000->8000/tcp   test_nw,test_nw2  
-10.0.0.1:5000/app_example_image:v3   app_example_web     0.0.0.0:80->8000/tcp          test_nw  
+10.0.0.1:5000/app_example_image:v3       app_example_nodes   239.255.0.42:8000->8000/tcp   test_nw,test_nw2  
+10.0.0.1:5000/app_example_image:v3       app_example_web     0.0.0.0:80->8000/tcp          test_nw  
 default via 10.1.4.100 dev eth0  
 10.1.4.0/24 dev eth0  proto kernel  scope link  src 10.1.4.2  
 10.2.3.0/24 dev eth1  proto kernel  scope link  src 10.2.3.2  
 
 web-back3.testing | SUCCESS | rc=0 >>  
 IMAGE                                    NAMES               PORTS                         NETWORKS  
-10.0.0.1:5000/app_example_image:v3   app_example_nodes   239.255.0.42:8000->8000/tcp   test_nw2,test_nw  
-10.0.0.1:5000/app_example_image:v3   app_example_web     0.0.0.0:80->8000/tcp          test_nw  
+10.0.0.1:5000/app_example_image:v3       app_example_nodes   239.255.0.42:8000->8000/tcp   test_nw2,test_nw  
+10.0.0.1:5000/app_example_image:v3       app_example_web     0.0.0.0:80->8000/tcp          test_nw  
 default via 10.1.4.100 dev eth0  
 10.1.4.0/24 dev eth0  proto kernel  scope link  src 10.1.4.2  
 10.2.3.0/24 dev eth1  proto kernel  scope link  src 10.2.3.2  
 ```
+
+#### Multiple host spanning network
+
+Now lets make things really interesting and get all of those containers share a single common network. For this we will need to utilize the _Overlay_ network driver. Here's how to do it in three _easy_ steps:
+
+1. First we need to select some key-value store, which will allow the _Overlay_ driver to exchange data between hosts.  
+We get to choose from the following options:
+    * Consul  
+    * Etcd  
+    * Apache ZooKeeper
+  
+   The following example uses a Consul image from Docker Hub, so you don't have to install anything.  
+
+2. Next we have to update the way our docker engine is started ([same place we changed when setting up the registry](#docker-registry)) by adding the following two options to our own docker:  
+```
+--cluster-store=consul://127.0.0.1:8500 --cluster-advertise=10.0.0.1:2375
+```  
+and on each Virtual machine with:  
+```
+--cluster-store=consul://127.0.0.1:8500 --cluster-advertise=EXT_IF:2375
+```  
+and remember to *restart the dockers*.  
+:warning: EXT_IF may be _eth0_, _enp0s3_ or something else. It all depends on your virtual machine configuration/OS.
+  
+3. Inspect and run the [deploy-overlay.yml](ansible-playbook/deploy-overlay.yml) playbook:  
+```ansible-playbook -i testing deploy-overlay.yml```  
+
+When all is set we can inspect the newly created network:  
+```
+$ ansible all -i testing -m shell -a 'docker container ls --format "table {%raw%}{{.Image}}\t{{.Names}}\t{{.Ports}}\t{{.Networks}}{%endraw%}" && export hostname=`hostname -s` && docker exec app_example_nodes-$hostname ip addr | grep -E "inet.+eth"'  
+web-back1.testing | SUCCESS | rc=0 >>  
+IMAGE                                    NAMES                         PORTS                         NETWORKS  
+10.0.0.1:5000/app_example_image:v3       app_example_nodes-web-back1   239.255.0.42:8000->8000/tcp   test_overlay  
+10.0.0.1:5000/app_example_image:v3       app_example_web-web-back1     0.0.0.0:80->8000/tcp          test_overlay  
+consul                                   consul-client                                               host  
+    inet 10.10.10.7/24 scope global eth0  
+    inet 172.18.0.3/16 scope global eth1  
+
+web-back2.testing | SUCCESS | rc=0 >>  
+IMAGE                                    NAMES                         PORTS                         NETWORKS  
+10.0.0.1:5000/app_example_image:v3       app_example_nodes-web-back2   239.255.0.42:8000->8000/tcp   test_overlay  
+10.0.0.1:5000/app_example_image:v3       app_example_web-web-back2     0.0.0.0:80->8000/tcp          test_overlay  
+consul                                   consul-client                                               host  
+    inet 10.10.10.6/24 scope global eth0  
+    inet 172.18.0.3/16 scope global eth1  
+
+web-back3.testing | SUCCESS | rc=0 >>  
+IMAGE                                    NAMES                         PORTS                         NETWORKS  
+10.0.0.1:5000/app_example_image:v3       app_example_nodes-web-back3   239.255.0.42:8000->8000/tcp   test_overlay  
+10.0.0.1:5000/app_example_image:v3       app_example_web-web-back3     0.0.0.0:80->8000/tcp          test_overlay  
+consul                                   consul-client                                               host  
+    inet 10.10.10.5/24 scope global eth0  
+    inet 172.18.0.3/16 scope global eth1  
+```  
+:arrow_right: Note that the container names had to be altered (postfixed with the domain name), because now they need to be unique in the network scope. You can see why by running [nmap](https://nmap.org) from one of the running containers:  
+```
+root@446d7f20203b:/project# nmap -sP 10.10.10.0/24  
+
+Starting Nmap 6.47 ( http://nmap.org ) at 2017-05-31 22:23 UTC  
+Nmap scan report for 10.10.10.1  
+Host is up (0.000082s latency).  
+MAC Address: 02:EB:59:31:28:E7 (Unknown)  
+Nmap scan report for app_example_web-web1.test_overlay (10.10.10.2)  
+Host is up (0.000012s latency).  
+MAC Address: 02:42:0A:0A:0A:02 (Unknown)  
+Nmap scan report for app_example_web-web2.test_overlay (10.10.10.3)  
+Host is up (0.000018s latency).  
+MAC Address: 02:42:0A:0A:0A:03 (Unknown)  
+Nmap scan report for app_example_web-web3.test_overlay (10.10.10.4)  
+Host is up (0.000010s latency).  
+MAC Address: 02:42:0A:0A:0A:04 (Unknown)  
+Nmap scan report for app_example_nodes-web3.test_overlay (10.10.10.5)  
+Host is up (0.000010s latency).  
+MAC Address: 02:42:0A:0A:0A:05 (Unknown)  
+Nmap scan report for app_example_nodes-web1.test_overlay (10.10.10.7)  
+Host is up (0.000016s latency).  
+MAC Address: 02:42:0A:0A:0A:07 (Unknown)  
+Nmap scan report for 446d7f20203b (10.10.10.6)  
+Host is up.  
+Nmap done: 256 IP addresses (7 hosts up) scanned in 3.50 seconds  
+```  
+As you can see, the container names are now *fully resolvable container hostnames* (the final host is shown as "446d7f20203b" because that's where nmap was run from, hence it returned the /etc/hosts match instead. But of course you can also reach it via _app\_example\_nodes-web2.test\_overlay_).  
+
+:warning: Contrary to the previous example, here you need to have a "master" host, which hosts the _Consul cluster leader_:  
+```
+$ docker exec -it dev-consul consul members  
+Node               Address        Status  Type    Build  Protocol  DC  
+docker-host        10.0.0.1:8301  alive   server  0.8.3  2         dc1  
+web-back1.testing  10.0.0.2:8301  alive   client  0.8.3  2         dc1  
+web-back2.testing  10.0.0.3:8301  alive   client  0.8.3  2         dc1  
+web-back3.testing  10.0.0.4:8301  alive   client  0.8.3  2         dc1  
+```  
+Of course you could also set it up on one of the deployment hosts.
+
+:warning: Be sure to consult [Consul documentation](https://www.consul.io/docs/guides/index.html) before using this example beyond your devel environment because it is simplified and therefore not safe for production use.
 
 ## Configuration layer 3
 

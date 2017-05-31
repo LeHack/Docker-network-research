@@ -5,6 +5,27 @@
   environment:
     DOCKER_HOST: "{{ DOCKER_HOST_IP }}:2375"
   tasks:
+    - name: Fetch the up-to-date Consul image from DockerHub
+      docker_image:
+        name: consul
+        tag: latest
+        pull: yes
+
+    - name: Ensure the Consul master container is up and running
+      docker_container:
+        name: dev-consul
+        image: consul
+        state: started
+        network_mode: host
+        command: [consul, agent, "-data-dir=/consul/data/", -server, -bootstrap, "-bind={{ DOCKER_HOST_IP }}"]
+
+    - name: Setup an overlay network master
+      docker_network:
+        name: test_overlay
+        driver: overlay
+        ipam_options:
+          subnet: '10.10.10.0/24'
+
     - name: Ensure the registry container is up and running
       docker_container:
         name: registry
@@ -22,7 +43,7 @@
 
 
 - name: Deploy application image
-  gather_facts: no
+  gather_facts: yes
   hosts: all
   tasks:
     - name: Copy requirements.txt to remote hosts
@@ -35,6 +56,22 @@
         requirements: /tmp/requirements.txt
         extra_args: --disable-pip-version-check
 
+    - name: Fetch the up-to-date Consul image from DockerHub
+      docker_image:
+        name: consul
+        tag: latest
+        pull: yes
+
+    - name: Ensure the Consul container is up and running in client mode
+      docker_container:
+        name: consul-client
+        image: consul
+        state: started
+        network_mode: host
+        command: [consul, agent, "-data-dir=/consul/data/", "-bind={{ ansible_default_ipv4.address }}", "-retry-join={{ DOCKER_HOST_IP }}"]
+        env:
+          CONSUL_LOCAL_CONFIG: {"leave_on_terminate": true}
+
     - name: Pull the docker image from the registry
       docker_image:
         name: "{{ REGISTRY_URL }}/{{ IMAGE_NAME }}:{{ IMAGE_TAG }}"
@@ -42,41 +79,34 @@
         use_tls: no
         state: present
 
-    - name: Setup the first network
+    - name: Setup an overlay network
       docker_network:
-        name: test_nw
+        name: test_overlay
+        driver: overlay
         ipam_options:
-          subnet: '10.1.4.0/24'
-          gateway: 10.1.4.100
-
-    - name: Setup the second network
-      docker_network:
-        name: test_nw2
-        ipam_options:
-          subnet: '10.2.3.0/24'
+          subnet: '10.10.10.0/24'
 
     - name: Create the web container and run it
       docker_container:
-        name: app_example_web
+        name: "app_example_web-{{ ansible_hostname }}"
         image: "{{ REGISTRY_URL }}/{{ IMAGE_NAME }}:{{ IMAGE_TAG }}"
         state: started
         restart: yes
         purge_networks: yes
         networks:
-          - name: test_nw
+          - name: test_overlay
         ports:
           - "80:8000"
 
     - name: Create the nodes container and run it
       docker_container:
-        name: app_example_nodes
+        name: "app_example_nodes-{{ ansible_hostname }}"
         image: "{{ REGISTRY_URL }}/{{ IMAGE_NAME }}:{{ IMAGE_TAG }}"
         state: started
         restart: yes
         purge_networks: yes
         networks:
-          - name: test_nw
-          - name: test_nw2
+          - name: test_overlay
         ports:
           - 239.255.0.42:8000:8000
 
