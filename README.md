@@ -12,12 +12,13 @@ The goal of this project was to understand the concepts behind docker networking
 4. [Configuration layer 3](#configuration-layer-3)  
 4.1. [Docker in swarm mode](#docker-in-swarm-mode)  
 4.2. [Ansible-container](#ansible-container)  
-4.2.1 [Virtual Machine](#virtual-machine)  
-4.2.2 [Docker registry](#docker-registry)  
-4.2.3 [Deployment](#deployment)  
-4.2.4 [Multiple host spanning network](#multiple-host-spanning-network)  
-4.3. [Openshift](#openshift)  
-4.4. [Kubernetes](#kubernetes)  
+    * [Virtual Machine](#virtual-machine)  
+    * [Docker registry](#docker-registry)  
+    * [Deployment](#deployment)  
+    * [Multiple host spanning network](#multiple-host-spanning-network)  
+
+    4.3. [Openshift](#openshift)  
+    4.4. [Kubernetes](#kubernetes)  
 
 ## Quick introduction to Docker
 
