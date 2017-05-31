@@ -274,26 +274,26 @@ Starting Nmap 6.47 ( http://nmap.org ) at 2017-05-31 22:23 UTC
 Nmap scan report for 10.10.10.1  
 Host is up (0.000082s latency).  
 MAC Address: 02:EB:59:31:28:E7 (Unknown)  
-Nmap scan report for app_example_web-web1.test_overlay (10.10.10.2)  
+Nmap scan report for app_example_web-web-back1.test_overlay (10.10.10.2)  
 Host is up (0.000012s latency).  
 MAC Address: 02:42:0A:0A:0A:02 (Unknown)  
-Nmap scan report for app_example_web-web2.test_overlay (10.10.10.3)  
+Nmap scan report for app_example_web-web-back2.test_overlay (10.10.10.3)  
 Host is up (0.000018s latency).  
 MAC Address: 02:42:0A:0A:0A:03 (Unknown)  
-Nmap scan report for app_example_web-web3.test_overlay (10.10.10.4)  
+Nmap scan report for app_example_web-web-back3.test_overlay (10.10.10.4)  
 Host is up (0.000010s latency).  
 MAC Address: 02:42:0A:0A:0A:04 (Unknown)  
-Nmap scan report for app_example_nodes-web3.test_overlay (10.10.10.5)  
+Nmap scan report for app_example_nodes-web-back3.test_overlay (10.10.10.5)  
 Host is up (0.000010s latency).  
 MAC Address: 02:42:0A:0A:0A:05 (Unknown)  
-Nmap scan report for app_example_nodes-web1.test_overlay (10.10.10.7)  
+Nmap scan report for app_example_nodes-web-back1.test_overlay (10.10.10.7)  
 Host is up (0.000016s latency).  
 MAC Address: 02:42:0A:0A:0A:07 (Unknown)  
 Nmap scan report for 446d7f20203b (10.10.10.6)  
 Host is up.  
 Nmap done: 256 IP addresses (7 hosts up) scanned in 3.50 seconds  
 ```  
-As you can see, the container names are now *fully resolvable container hostnames* (the final host is shown as "446d7f20203b" because that's where nmap was run from, hence it returned the /etc/hosts match instead. But of course you can also reach it via _app\_example\_nodes-web2.test\_overlay_).  
+As you can see, the container names are now *fully resolvable container hostnames* (the final host is shown as "446d7f20203b" because that's where nmap was run from, hence it returned the /etc/hosts match instead. But of course you can also reach it via _app\_example\_nodes-web-back2.test\_overlay_).  
 
 :warning: Contrary to the previous example, here you need to have a "master" host, which hosts the _Consul cluster leader_:  
 ```
