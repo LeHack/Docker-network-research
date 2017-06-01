@@ -361,6 +361,7 @@ Following steps show an example of how to run a service:
 $ docker service ls  
 ID            NAME             MODE        REPLICAS  IMAGE  
 qg69qmxxlozc  service_example  replicated  1/1       docker-host:5000/app_example_image:latest  
+
 $ docker container ls --format 'table {{.ID}}\t{{.Command}}\t{{.Status}}\t{{.Ports}}\t{{.Names}}\t{{.Networks}}'  
 CONTAINER ID        COMMAND                  STATUS              PORTS                    NAMES                                         NETWORKS  
 efd0fbb2ad6e        "python3 /project/..."   Up 12 minutes                                service_example.1.vo5luctopep2k4e9v3m02ve3o   bridge  
