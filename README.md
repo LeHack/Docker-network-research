@@ -347,10 +347,10 @@ wquc87x7ywasg1crouoen82yd    web-back3.testing  Ready   Active
 
 Having all this information, the swarm manager can run and manage services on itself and its nodes.
   
-Following step show an example of how to run a service:  
-:arrow_right: For this example to work (and to demonstrate resource-detection in action) update your node VMs have a limit of 1 CPU per machine.  
+Following steps show an example of how to run a service:  
+:arrow_right: For this example to work (and to demonstrate resource-detection in action) update your node VMs to have a limit of 1 CPU per machine.  
 1. [Build and tag the image](#quick-introduction-to-docker)
-2. Once again tag the image, but this time using its fully qualified name, which includes the registry URL (:warning: make sure that the domain name used is resolvable from every node to which you want to deploy this service):  
+2. Once again tag the image, but this time using its fully qualified name which includes the registry URL (:warning: make sure that the domain name used is resolvable from every node to which you want to deploy this service):  
 ```docker tag app_example_image docker-host:5000/app_example_image```
 3. Push it to the registry to make it accessible from every node:  
 ```docker push docker-host:5000/app_example_image```  
@@ -365,7 +365,8 @@ $ docker container ls --format 'table {{.ID}}\t{{.Command}}\t{{.Status}}\t{{.Por
 CONTAINER ID        COMMAND                  STATUS              PORTS                    NAMES                                         NETWORKS  
 efd0fbb2ad6e        "python3 /project/..."   Up 12 minutes                                service_example.1.vo5luctopep2k4e9v3m02ve3o   bridge  
 ccfbc104231c        "/entrypoint.sh /e..."   Up 31 minutes       0.0.0.0:5000->5000/tcp   dockerregistry_registry_1                     bridge  
-```Notice that for now the service is only available on a bridge network (quite possibly at 172.17.0.3:8000). This is because it is run locally on the manager node and doesn't need an Overlay network to be setup.  
+```  
+Notice that for now the service is only available on a bridge network (quite possibly at 172.17.0.3:8000). This is because it is run locally on the manager node and doesn't need an Overlay network to be setup.  
 6. Now let's update the service to contain a port mapping and specify a CPU resource requirement:  
 ```docker service update service_example --reserve-cpu 1 --limit-cpu 1 --publish-add 8000:8000```  
 
