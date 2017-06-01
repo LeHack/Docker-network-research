@@ -331,7 +331,7 @@ A swarm is actually a cluster of nodes with one or more nodes designated to be m
 This time you can run it using a [deploy-compose.yml](docker-registry/docker-compose.yml) file from within the _docker-registry_ directory:  
 ```docker-compose up -d```  
 2. run ```docker swarm init``` on the machine designated to be a manager
-3. run ```docker swarm join --token $TOKEN $MANAGER_IP:2377``` (you will be provided with the join command when running init)
+3. run ```docker swarm join --token $TOKEN $MANAGER_IP:2377``` on each node (you will be provided with the join command when running init)
 
 You can now inspect your cluster by issuing:  
 ```
@@ -348,7 +348,7 @@ wquc87x7ywasg1crouoen82yd    web-back3.testing  Ready   Active
 Having all this information, the swarm manager can run and manage services on itself and its nodes.
   
 Following step show an example of how to run a service:  
-:arrow-right: For this example to work (and to demonstrate resource-detection in action) update your node VMs have a limit of 1 CPU per machine.  
+:arrow_right: For this example to work (and to demonstrate resource-detection in action) update your node VMs have a limit of 1 CPU per machine.  
 1. [Build and tag the image](#quick-introduction-to-docker)
 2. Once again tag the image, but this time using its fully qualified name, which includes the registry URL (:warning: make sure that the domain name used is resolvable from every node to which you want to deploy this service):  
 ```docker tag app_example_image docker-host:5000/app_example_image```
