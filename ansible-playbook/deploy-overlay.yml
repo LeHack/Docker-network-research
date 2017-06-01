@@ -44,7 +44,7 @@
 
 - name: Deploy application image
   gather_facts: yes
-  hosts: all
+  hosts: back
   tasks:
     - name: Copy requirements.txt to remote hosts
       copy:

@@ -38,8 +38,8 @@ Finally we can also decide to "commit" a running container to an existing or a c
 ## Configuration layer 1
 
 To effectively manage the process of deploying applications (both for testing and production purposes) we have to be able to automate it in a highly deterministic manner, which will allow us to test and find bugs in the deployment process itself before they hurt our production servers.  
-To achieve that, we need to separate all of the deployment tasks into a number of layers. The bigger the application, the more layers may be required to keep maintenance and operation costs at a minimum.  
-The first layer is actually the already mentioned Dockerfile which allows us to encapsulate the application code inside an image. For very small deployments, a single container may prove to be enough. It is however recommended to separate **different responsibilities** into **different containers** to be able to manage them effectively without bringing down the whole application each time we need to update the code or change configuration of one of the components. At the same time we should avoid logging into any running containers (for reasons other than debugging) and should ensure that we can simply restart them from a newly built image.  
+In order achieve that, we need to separate all of the deployment tasks into a number of layers. The bigger the application, the more layers may be required to keep maintenance and operation costs at a minimum.  
+The first layer is actually the already mentioned _Dockerfile_ which allows us to encapsulate the application code inside an image. For very small deployments, a single container may prove to be enough. It is however recommended to separate **different responsibilities** into **different containers** to be able to manage them effectively without bringing down the whole application each time we need to update the code or change configuration of one of the components. At the same time we should avoid logging into any running containers (for reasons other than debugging) and should ensure that we can simply restart them from a newly built image.  
 This keeps the update process relatively easy and simple and will allow to spot most issues early on. It might even allow for a quick rollback in the event that we encounter any serious issues after releasing a new version of our application.
 
 ### Docker networking
@@ -158,16 +158,15 @@ There are [plenty](http://www.itworld.com/article/2919329/virtualization/how-to-
 
 #### Docker registry
 This part is actually [pretty well explained here](https://docs.docker.com/registry/deploying/) with the only exception, that we want to have the registry to be reachable from within our VBox host-only network. The simplest way to achieve this is to change dockerd run params (DOCKER_OPTS in /etc/default/docker on Ubuntu) to contain the following two params:  
-```-H 10.0.0.1 --insecure-registry 10.0.0.1:5000```  
+```-H docker-host --insecure-registry docker-host:5000```  
 and restart the docker service.  
 
-:warning: Of course "10.0.0.1" is only an example and you should replace this with the IP of the interface to which your Virtual machines are bridged. The important part is to make sure that the docker registry and the deployment nodes can reach each other.
+:warning: Of course "docker-host" is only an example and you should replace this with the IP/host name of the interface to which your Virtual machines are bridged. The important part is to make sure that the docker registry and the deployment nodes can reach each other.
 
 :warning: The same **insecure-registry** option must be also set in the Virtual machine docker. Be aware that this is only acceptable for learning purposes. For any kind of real-world usage you **must** generate some SSL certificates and set it up with HTTPS enabled.
 
 :warning: From this moment, docker will be only available via the specified IP (not via sock), so you must make sure that you set the environment variable DOCKER_HOST to the appropriate IP, e.g.:  
-```export DOCKER_HOST=10.0.0.1:2375```
-
+```export DOCKER_HOST=docker-host:2375```
 
 Finally we can fire up the registry container as described in the tutorial:  
 ```docker run -d -p 5000:5000 --restart=always --name registry registry:2```  
@@ -176,9 +175,9 @@ Finally we can fire up the registry container as described in the tutorial:
 #### Deployment
 Now before we actually deploy anything, we need to have something to deploy. If you followed the steps in [the docker introduction](#quick-introduction-to-docker) you should have an "app\_example\_image" image ready.  
 To push it to our local registry, we _could_ run:
-* ```docker tag app_example_image 10.0.0.1:5000/app_example_image``` - to properly tag the existing image for use via the registry  
-* ```docker push 10.0.0.1:5000/app_example_image``` - to push the image layers into the registry   
-* ```docker pull 10.0.0.1:5000/app_example_image``` - to fetch the image from the registry on each deployment machine   
+* ```docker tag app_example_image docker-host:5000/app_example_image``` - to properly tag the existing image for use via the registry  
+* ```docker push docker-host:5000/app_example_image``` - to push the image layers into the registry   
+* ```docker pull docker-host:5000/app_example_image``` - to fetch the image from the registry on each deployment machine   
 * and finally [a variation of the commands from docker-compose example](docker-compose-example) to setup the network
 
 But where's the fun in that?  
@@ -194,24 +193,24 @@ You can verify the settings using... you guessed it, Ansible!
 $ ansible back -i testing -m shell -a "docker container ls --format 'table {%raw%}{{.Image}}\t{{.Names}}\t{{.Ports}}\t{{.Networks}}{%endraw%}' && docker exec app_example_nodes ip route"  
 web-back1.testing | SUCCESS | rc=0 >>  
 IMAGE                                    NAMES               PORTS                         NETWORKS  
-10.0.0.1:5000/app_example_image:v3       app_example_nodes   239.255.0.42:8000->8000/tcp   test_nw,test_nw2  
-10.0.0.1:5000/app_example_image:v3       app_example_web     0.0.0.0:80->8000/tcp          test_nw  
+docker-host:5000/app_example_image:v3    app_example_nodes   239.255.0.42:8000->8000/tcp   test_nw,test_nw2  
+docker-host:5000/app_example_image:v3    app_example_web     0.0.0.0:80->8000/tcp          test_nw  
 default via 10.1.4.100 dev eth0  
 10.1.4.0/24 dev eth0  proto kernel  scope link  src 10.1.4.2  
 10.2.3.0/24 dev eth1  proto kernel  scope link  src 10.2.3.2  
 
 web-back2.testing | SUCCESS | rc=0 >>  
 IMAGE                                    NAMES               PORTS                         NETWORKS  
-10.0.0.1:5000/app_example_image:v3       app_example_nodes   239.255.0.42:8000->8000/tcp   test_nw,test_nw2  
-10.0.0.1:5000/app_example_image:v3       app_example_web     0.0.0.0:80->8000/tcp          test_nw  
+docker-host:5000/app_example_image:v3    app_example_nodes   239.255.0.42:8000->8000/tcp   test_nw,test_nw2  
+docker-host:5000/app_example_image:v3    app_example_web     0.0.0.0:80->8000/tcp          test_nw  
 default via 10.1.4.100 dev eth0  
 10.1.4.0/24 dev eth0  proto kernel  scope link  src 10.1.4.2  
 10.2.3.0/24 dev eth1  proto kernel  scope link  src 10.2.3.2  
 
 web-back3.testing | SUCCESS | rc=0 >>  
 IMAGE                                    NAMES               PORTS                         NETWORKS  
-10.0.0.1:5000/app_example_image:v3       app_example_nodes   239.255.0.42:8000->8000/tcp   test_nw2,test_nw  
-10.0.0.1:5000/app_example_image:v3       app_example_web     0.0.0.0:80->8000/tcp          test_nw  
+docker-host:5000/app_example_image:v3    app_example_nodes   239.255.0.42:8000->8000/tcp   test_nw2,test_nw  
+docker-host:5000/app_example_image:v3    app_example_web     0.0.0.0:80->8000/tcp          test_nw  
 default via 10.1.4.100 dev eth0  
 10.1.4.0/24 dev eth0  proto kernel  scope link  src 10.1.4.2  
 10.2.3.0/24 dev eth1  proto kernel  scope link  src 10.2.3.2  
@@ -231,7 +230,7 @@ We get to choose from the following options:
 
 2. Next we have to update the way our docker engine is started ([same place we changed when setting up the registry](#docker-registry)) by adding the following two options to our own docker:  
 ```
---cluster-store=consul://127.0.0.1:8500 --cluster-advertise=10.0.0.1:2375
+--cluster-store=consul://127.0.0.1:8500 --cluster-advertise=docker-host:2375
 ```  
 and on each Virtual machine with:  
 ```
@@ -245,27 +244,27 @@ and remember to *restart the dockers*.
 
 When all is set we can inspect the newly created network:  
 ```
-$ ansible all -i testing -m shell -a 'docker container ls --format "table {%raw%}{{.Image}}\t{{.Names}}\t{{.Ports}}\t{{.Networks}}{%endraw%}" && export hostname=`hostname -s` && docker exec app_example_nodes-$hostname ip addr | grep -E "inet.+eth"'  
+$ ansible back -i testing -m shell -a 'docker container ls --format "table {%raw%}{{.Image}}\t{{.Names}}\t{{.Ports}}\t{{.Networks}}{%endraw%}" && export hostname=`hostname -s` && docker exec app_example_nodes-$hostname ip addr | grep -E "inet.+eth"'  
 web-back1.testing | SUCCESS | rc=0 >>  
 IMAGE                                    NAMES                         PORTS                         NETWORKS  
-10.0.0.1:5000/app_example_image:v3       app_example_nodes-web-back1   239.255.0.42:8000->8000/tcp   test_overlay  
-10.0.0.1:5000/app_example_image:v3       app_example_web-web-back1     0.0.0.0:80->8000/tcp          test_overlay  
+docker-host:5000/app_example_image:v3    app_example_nodes-web-back1   239.255.0.42:8000->8000/tcp   test_overlay  
+docker-host:5000/app_example_image:v3    app_example_web-web-back1     0.0.0.0:80->8000/tcp          test_overlay  
 consul                                   consul-client                                               host  
     inet 10.10.10.7/24 scope global eth0  
     inet 172.18.0.3/16 scope global eth1  
 
 web-back2.testing | SUCCESS | rc=0 >>  
 IMAGE                                    NAMES                         PORTS                         NETWORKS  
-10.0.0.1:5000/app_example_image:v3       app_example_nodes-web-back2   239.255.0.42:8000->8000/tcp   test_overlay  
-10.0.0.1:5000/app_example_image:v3       app_example_web-web-back2     0.0.0.0:80->8000/tcp          test_overlay  
+docker-host:5000/app_example_image:v3    app_example_nodes-web-back2   239.255.0.42:8000->8000/tcp   test_overlay  
+docker-host:5000/app_example_image:v3    app_example_web-web-back2     0.0.0.0:80->8000/tcp          test_overlay  
 consul                                   consul-client                                               host  
     inet 10.10.10.6/24 scope global eth0  
     inet 172.18.0.3/16 scope global eth1  
 
 web-back3.testing | SUCCESS | rc=0 >>  
 IMAGE                                    NAMES                         PORTS                         NETWORKS  
-10.0.0.1:5000/app_example_image:v3       app_example_nodes-web-back3   239.255.0.42:8000->8000/tcp   test_overlay  
-10.0.0.1:5000/app_example_image:v3       app_example_web-web-back3     0.0.0.0:80->8000/tcp          test_overlay  
+docker-host:5000/app_example_image:v3    app_example_nodes-web-back3   239.255.0.42:8000->8000/tcp   test_overlay  
+docker-host:5000/app_example_image:v3    app_example_web-web-back3     0.0.0.0:80->8000/tcp          test_overlay  
 consul                                   consul-client                                               host  
     inet 10.10.10.5/24 scope global eth0  
     inet 172.18.0.3/16 scope global eth1  
@@ -328,15 +327,88 @@ Docker Swarm mode was developed to address the multi-host nature of most large a
 * resource requirements
 
 A swarm is actually a cluster of nodes with one or more nodes designated to be managers. Creating a simple swarm out of a number of machines sharing a common network is a very straightforward task. All you need to do is:
-1. run ```docker swarm init``` on the machine designated to be a manager
-2. run ```docker swarm join --token $TOKEN $MANAGER_IP:2377``` (you will be provided with the join command when running init)  
-
-Having all this information, the swarm manager can run and manage services on itself and its nodes. Here is an example of how to run a two node swarm using the [Dockerfile](docker-compose/Dockerfile):
-1. [build and tag the image](#quick-introduction-to-docker)
-2. create a service out of it: ```docker service create --name service_example app_example_image```
-...
+1. [Setup docker to run a registry](#docker-registry). This time you can run it using a [deploy-compose.yml](docker-registry/docker-compose.yml) file from within the _docker-registry_ directory:  
+```docker-compose up -d```  
+2. ```docker swarm init``` on the machine designated to be a manager
+3. ```docker swarm join --token $TOKEN $MANAGER_IP:2377``` (you will be provided with the join command when running init)  
+You can inspect your cluster by issuing:  
+```
+$ docker node ls  
+ID                           HOSTNAME           STATUS  AVAILABILITY  MANAGER STATUS  
+23rhp7w2l3gn1og68stohv6md    web-back2.testing  Ready   Active        
+91e7jti9e48sszbwsru5iyn6k    web-back1.testing  Ready   Active        
+rpsesq1lko4putmu8tn08i5op *  docker-host        Ready   Active        Leader  
+wquc87x7ywasg1crouoen82yd    web-back3.testing  Ready   Active        
+```
 
 :warning: Important quote from the docs: "For testing purposes it is OK to run a swarm with a single manager. If the manager in a single-manager swarm fails, your services will continue to run, but you will need to create a new cluster to recover."
+
+Having all this information, the swarm manager can run and manage services on itself and its nodes.
+  
+Following step show an example of how to run a service:  
+:arrow-right: For this example to work (and to demonstrate resource-detection in action) update your node VMs have a limit of 1 CPU per machine.  
+1. [Build and tag the image](#quick-introduction-to-docker)
+2. Once again tag the image, but this time using its fully qualified name, which includes the registry URL (:warning: make sure that the domain name used is resolvable from every node to which you want to deploy this service):  
+```docker tag app_example_image docker-host:5000/app_example_image```
+3. Push it to the registry to make it accessible from every node:  
+```docker push docker-host:5000/app_example_image```  
+4. Create a service using the image:  
+```docker service create --name service_example docker-host:5000/app_example_image```  
+5. Verify that it's running:  
+```
+$ docker service ls  
+ID            NAME             MODE        REPLICAS  IMAGE  
+qg69qmxxlozc  service_example  replicated  1/1       docker-host:5000/app_example_image:latest  
+$ docker container ls --format 'table {{.ID}}\t{{.Command}}\t{{.Status}}\t{{.Ports}}\t{{.Names}}\t{{.Networks}}'  
+CONTAINER ID        COMMAND                  STATUS              PORTS                    NAMES                                         NETWORKS  
+efd0fbb2ad6e        "python3 /project/..."   Up 12 minutes                                service_example.1.vo5luctopep2k4e9v3m02ve3o   bridge  
+ccfbc104231c        "/entrypoint.sh /e..."   Up 31 minutes       0.0.0.0:5000->5000/tcp   dockerregistry_registry_1                     bridge  
+```Notice that for now the service is only available on a bridge network (quite possibly at 172.17.0.3:8000). This is because it is run locally on the manager node and doesn't need an Overlay network to be setup.  
+6. Now let's update the service to contain a port mapping and specify a CPU resource requirement:  
+```docker service update service_example --reserve-cpu 1 --limit-cpu 1 --publish-add 8000:8000```  
+
+The service should become available on [docker-host:8000](http://docker-host:8000), but it's still running on the manager node.
+One way to force it to run on one of our actual nodes is to use labels:  
+```  
+docker node update --label-add type=worker web-back1.testing  
+docker node update --label-add type=worker web-back2.testing  
+docker node update --label-add type=worker web-back3.testing  
+docker node inspect web-back{1,2,3}.testing --pretty  
+```  
+Now update the service to make it run in 3 replicas on nodes that meet our new constraints and with a new port mapping:  
+```docker service update service_example --constraint-add 'node.labels.type == worker' --publish-add 80:8000 --publish-rm 8000:8000 --replicas 3```  
+If you want to change only the replica count, there is also a shorter way to do it:  
+```docker service scale service_example=3``` 
+
+Verify that it's working as expected:  
+```
+$ docker service ls  
+ID            NAME             MODE        REPLICAS  IMAGE  
+rsqgjyd8fe1w  service_example  replicated  3/3       docker-host:5000/app_example_image:latest  
+
+$ ansible back -i ansible-playbook/testing -m shell -a 'docker container ls --format "table {%raw%}{{.ID}}\t{{.Names}}\t{{.Networks}}{%endraw%}"'  
+web-back2.testing | SUCCESS | rc=0 >>  
+CONTAINER ID        NAMES                                         NETWORKS  
+2ea90851cf0a        service_example.2.3ochfpyodt6yc2kqjs8bf3vc5   ingress  
+
+web-back1.testing | SUCCESS | rc=0 >>  
+CONTAINER ID        NAMES                                         NETWORKS  
+78701430e4b1        service_example.1.4oauvirgbrhkwmdffvm10wi51   ingress  
+
+web-back3.testing | SUCCESS | rc=0 >>  
+CONTAINER ID        NAMES                                         NETWORKS  
+882bdfa8f548        service_example.3.cqy0yzx3b0rqto5x8qm3fukvg   ingress  
+
+$ docker network ls --filter driver=overlay  
+NETWORK ID          NAME                DRIVER              SCOPE  
+by1b7ajrz7g8        ingress             overlay             swarm  
+```
+
+#### Automating Swarms
+
+Going one step back, we can easily create an Ansible playbook to automate the Swarm creation. Despite the fact that at this moment there are no Ansible Swarm related modules available from Ansible itself, its users have already came up with custom solutions to fill the hole. For example check out these GitHub projects:  
+* [ansible-swarm](https://github.com/skippbox/ansible-swarm)
+* [ansible-swarm-playbook](https://github.com/nextrevision/ansible-swarm-playbook)
 
 ### Ansible-container
 
