@@ -327,11 +327,13 @@ Docker Swarm mode was developed to address the multi-host nature of most large a
 * resource requirements
 
 A swarm is actually a cluster of nodes with one or more nodes designated to be managers. Creating a simple swarm out of a number of machines sharing a common network is a very straightforward task. All you need to do is:
-1. [Setup docker to run a registry](#docker-registry). This time you can run it using a [deploy-compose.yml](docker-registry/docker-compose.yml) file from within the _docker-registry_ directory:  
+1. [Setup docker to run a registry](#docker-registry).  
+This time you can run it using a [deploy-compose.yml](docker-registry/docker-compose.yml) file from within the _docker-registry_ directory:  
 ```docker-compose up -d```  
-2. ```docker swarm init``` on the machine designated to be a manager
-3. ```docker swarm join --token $TOKEN $MANAGER_IP:2377``` (you will be provided with the join command when running init)  
-You can inspect your cluster by issuing:  
+2. run ```docker swarm init``` on the machine designated to be a manager
+3. run ```docker swarm join --token $TOKEN $MANAGER_IP:2377``` (you will be provided with the join command when running init)
+
+You can now inspect your cluster by issuing:  
 ```
 $ docker node ls  
 ID                           HOSTNAME           STATUS  AVAILABILITY  MANAGER STATUS  
@@ -373,7 +375,24 @@ One way to force it to run on one of our actual nodes is to use labels:
 docker node update --label-add type=worker web-back1.testing  
 docker node update --label-add type=worker web-back2.testing  
 docker node update --label-add type=worker web-back3.testing  
-docker node inspect web-back{1,2,3}.testing --pretty  
+$ docker node inspect web-back{1,2,3}.testing --pretty  
+ID:         ahavlc8put6r1s0oga7ro5ld8  
+Labels:  
+ - type = worker  
+Hostname:       web-back1.testing  
+...  
+
+ID:         xqizb54nrz3f9tp05i98kbcet  
+Labels:  
+ - type = worker  
+Hostname:       web-back2.testing  
+...  
+
+ID:         k03nx073r73u9qscl0rcvzits  
+Labels:  
+ - type = worker  
+Hostname:       web-back3.testing  
+...
 ```  
 Now update the service to make it run in 3 replicas on nodes that meet our new constraints and with a new port mapping:  
 ```docker service update service_example --constraint-add 'node.labels.type == worker' --publish-add 80:8000 --publish-rm 8000:8000 --replicas 3```  
