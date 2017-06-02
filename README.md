@@ -406,8 +406,7 @@ Hostname:       web-back3.testing
 Now update the service to make it run in 3 replicas on nodes that meet our new constraints and with a new port mapping:  
 ```docker service update service_example --constraint-add 'node.labels.type == worker' --publish-add 80:8000 --publish-rm 8000:8000 --replicas 3```  
 
-:right_arrow: If you want to change only the replica count, there is also a shorter way to do it:  
-```docker service scale service_example=3``` 
+:arrow_right: If you want to change only the replica count, use a shortcut: ```docker service scale service_example=3``` 
 
 Verify that it's working as expected:  
 ```
