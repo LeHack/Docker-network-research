@@ -333,7 +333,7 @@ Docker Swarm mode was developed to address the multi-host nature of most large a
 #### Swarm setup
 A swarm is actually a cluster of nodes with one or more nodes designated to be managers. Creating a simple swarm out of a number of machines sharing a common network is a very straightforward task. All you need to do is:
 1. [Setup docker to run a registry](#docker-registry).  
-This time you can run it using a [deploy-compose.yml](docker-registry/docker-compose.yml) file from within the cd_ directory:  
+This time you can run it using a [deploy-compose.yml](docker-registry/docker-compose.yml) file from within the _docker-registry_ directory:  
 ```cd docker-registry && docker-compose up -d```  
 2. run ```docker swarm init``` on the machine designated to be a manager
 3. run ```docker swarm join --token $TOKEN $MANAGER_IP:2377``` on each node (you will be provided with the join command when running step 2.)
