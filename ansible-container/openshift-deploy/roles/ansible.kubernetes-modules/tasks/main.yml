@@ -1,0 +1,10 @@
+# tasks/main.yml
+---
+
+- name: Intall latest openshift client 
+  pip:
+    name: https://github.com/openshift/openshift-restclient-python/archive/master.tar.gz
+    state: latest 
+    virtualenv: "{{ virtualenv }}"
+  when: install_python_requirements
+

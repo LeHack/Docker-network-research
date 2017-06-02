@@ -1,0 +1,287 @@
+  - name: Manage the lifecycle of ansible-container on OpenShift™
+    hosts: localhost
+    gather_facts: no
+    connection: local
+    # Include Ansible Kubernetes and OpenShift modules
+    roles:
+      - role: ansible.kubernetes-modules
+    # Tasks for setting the application state. Valid tags include: start, stop, restart, destroy
+    tasks:
+      - name: Create project ansible-container
+        openshift_v1_project:
+            name: ansible-container
+            state: present
+        tags:
+          - start
+      - name: Destroy the application by removing project ansible-container
+        openshift_v1_project:
+            name: ansible-container
+            state: absent
+        tags:
+          - destroy
+      - name: Create service
+        k8s_v1_service:
+            state: present
+            force: false
+            resource_definition:
+                apiVersion: v1
+                kind: Service
+                metadata:
+                    name: web
+                    namespace: ansible-container
+                    labels:
+                        app: ansible-container
+                        service: web
+                spec:
+                    selector:
+                        app: ansible-container
+                        service: web
+                    ports:
+                      - protocol: TCP
+                        targetPort: 8000
+                        name: port-80-tcp
+                        port: 80
+        tags:
+          - start
+      - name: Create service
+        k8s_v1_service:
+            state: present
+            force: false
+            resource_definition:
+                apiVersion: v1
+                kind: Service
+                metadata:
+                    name: nodes
+                    namespace: ansible-container
+                    labels:
+                        app: ansible-container
+                        service: nodes
+                spec:
+                    selector:
+                        app: ansible-container
+                        service: nodes
+                    ports:
+                      - protocol: TCP
+                        targetPort: 8000
+                        name: port-8000-tcp
+                        port: 8000
+        tags:
+          - start
+      - name: Stop running containers by scaling replicas down to 0
+        openshift_v1_deployment_config:
+            state: present
+            force: false
+            resource_definition:
+                apiVersion: v1
+                kind: deployment_config
+                metadata:
+                    name: web
+                    labels:
+                        app: ansible-container
+                        service: web
+                    namespace: ansible-container
+                spec:
+                    template:
+                        metadata:
+                            labels:
+                                app: ansible-container
+                                service: web
+                        spec:
+                            containers:
+                              - name: web
+                                securityContext: {}
+                                state: present
+                                env:
+                                  - name: PYTHONUNBUFFERED
+                                    value: '1'
+                                workingDir: /project
+                                command:
+                                  - python3
+                                  - /project/manage.py
+                                args:
+                                  - runserver
+                                  - 0.0.0.0:8000
+                                ports:
+                                  - protocol: TCP
+                                    containerPort: 8000
+                                image: http://docker-host:5000/testapp/ansible-container-web
+                    replicas: 0
+                    strategy:
+                        type: Rolling
+        tags:
+          - stop
+          - restart
+      - name: Stop running containers by scaling replicas down to 0
+        openshift_v1_deployment_config:
+            state: present
+            force: false
+            resource_definition:
+                apiVersion: v1
+                kind: deployment_config
+                metadata:
+                    name: nodes
+                    labels:
+                        app: ansible-container
+                        service: nodes
+                    namespace: ansible-container
+                spec:
+                    template:
+                        metadata:
+                            labels:
+                                app: ansible-container
+                                service: nodes
+                        spec:
+                            containers:
+                              - name: nodes
+                                securityContext: {}
+                                state: present
+                                env:
+                                  - name: PYTHONUNBUFFERED
+                                    value: '1'
+                                workingDir: /project
+                                command:
+                                  - python3
+                                  - /project/manage.py
+                                args:
+                                  - runserver
+                                  - 239.255.0.42:8000
+                                ports:
+                                  - protocol: TCP
+                                    containerPort: 8000
+                                image: http://docker-host:5000/testapp/ansible-container-nodes
+                    replicas: 0
+                    strategy:
+                        type: Rolling
+        tags:
+          - stop
+          - restart
+      - name: Create deployment, and scale replicas up
+        openshift_v1_deployment_config:
+            state: present
+            force: false
+            resource_definition:
+                apiVersion: v1
+                kind: deployment_config
+                metadata:
+                    name: web
+                    labels:
+                        app: ansible-container
+                        service: web
+                    namespace: ansible-container
+                spec:
+                    template:
+                        metadata:
+                            labels:
+                                app: ansible-container
+                                service: web
+                        spec:
+                            containers:
+                              - name: web
+                                securityContext: {}
+                                state: present
+                                env:
+                                  - name: PYTHONUNBUFFERED
+                                    value: '1'
+                                workingDir: /project
+                                command:
+                                  - python3
+                                  - /project/manage.py
+                                args:
+                                  - runserver
+                                  - 0.0.0.0:8000
+                                ports:
+                                  - protocol: TCP
+                                    containerPort: 8000
+                                image: http://docker-host:5000/testapp/ansible-container-web
+                    replicas: 1
+                    strategy:
+                        type: Rolling
+        tags:
+          - start
+          - restart
+      - name: Create deployment, and scale replicas up
+        openshift_v1_deployment_config:
+            state: present
+            force: false
+            resource_definition:
+                apiVersion: v1
+                kind: deployment_config
+                metadata:
+                    name: nodes
+                    labels:
+                        app: ansible-container
+                        service: nodes
+                    namespace: ansible-container
+                spec:
+                    template:
+                        metadata:
+                            labels:
+                                app: ansible-container
+                                service: nodes
+                        spec:
+                            containers:
+                              - name: nodes
+                                securityContext: {}
+                                state: present
+                                env:
+                                  - name: PYTHONUNBUFFERED
+                                    value: '1'
+                                workingDir: /project
+                                command:
+                                  - python3
+                                  - /project/manage.py
+                                args:
+                                  - runserver
+                                  - 239.255.0.42:8000
+                                ports:
+                                  - protocol: TCP
+                                    containerPort: 8000
+                                image: http://docker-host:5000/testapp/ansible-container-nodes
+                    replicas: 1
+                    strategy:
+                        type: Rolling
+        tags:
+          - start
+          - restart
+      - name: Create route
+        openshift_v1_route:
+            state: present
+            force: false
+            resource_definition:
+                apiVersion: v1
+                kind: Route
+                metadata:
+                    name: web-80
+                    namespace: ansible-container
+                    labels:
+                        app: ansible-container
+                        service: web
+                spec:
+                    to:
+                        kind: Service
+                        name: web
+                    port:
+                        targetPort: port-80-tcp
+        tags:
+          - start
+      - name: Create route
+        openshift_v1_route:
+            state: present
+            force: false
+            resource_definition:
+                apiVersion: v1
+                kind: Route
+                metadata:
+                    name: nodes-8000
+                    namespace: ansible-container
+                    labels:
+                        app: ansible-container
+                        service: nodes
+                spec:
+                    to:
+                        kind: Service
+                        name: nodes
+                    port:
+                        targetPort: port-8000-tcp
+        tags:
+          - start

@@ -22,8 +22,9 @@ The goal of this project was to understand the concepts behind docker networking
     * [Managing swarm services](#managing-swarm-services)  
     * [Automating Swarms](#automating-swarms)  
   * [Ansible-container](#ansible-container)  
-    * [Openshift](#openshift)  
-    * [Kubernetes](#kubernetes)  
+    * [Building a container](#building-a-container)
+    * [Networking](#networking)
+    * [Deploying a container](#deploying-a-container)
 
 ## Quick introduction to Docker
 
@@ -455,7 +456,7 @@ Going one step back, we can easily create an Ansible playbook to automate the Sw
 
 OK. Remember when I called Ansible a supercharged SSH client? Well then ansible-container is a supercharged [ansible-playbook](#ansible-playbook-with-docker-registry).
 
-Ansible-container is built around the concept of **Roles**. They are basically a more developed form of playbooks describing how to build a single microservice (think _deb_ or _rpm_ packages). You can write your own or you can fetch them from the [Ansible Galaxy](https://galaxy.ansible.com/) where you can browse thousands of ready-to-use roles.  
+It is built around the concept of **Roles**. They are basically a more developed form of playbooks describing how to build a single microservice (think _deb_ or _rpm_ packages). You can write your own or you can fetch them from the [Ansible Galaxy](https://galaxy.ansible.com/) where you can browse thousands of ready-to-use roles.  
 Once you have them, you compose your services from them.  
 Examples of production ready roles from the Ansible Galaxy:  
 - [MySQL](https://galaxy.ansible.com/bennojoy/mysql/)  
@@ -479,11 +480,11 @@ or by converting your Dockerfile into a playbook, e.g.:
 We'll start with importing our test application from [docker-compose example](#docker-compose-example):  
 ```ansible-container import ../docker-compose/``` (this was already run to create the contents of the [ansible-container](ansible-container) directory) 
 
-Next step is to verify that everything makes sense (e.g. after running the above import on our docker-compose example the container.yml was blank and had to be created manually). Inspect the [ansible-container/roles](ansible-container/roles) directory to see how our [Dockerfile](docker-compose/Dockerfile) was converted to a set of _roles_.
+Next step is to verify that everything makes sense (e.g. after running the above import on our docker-compose example the container.yml was blank and had to be created manually). Inspect the [ansible-container/roles](ansible-container/roles) directory to see how our [Dockerfile](docker-compose/Dockerfile) was converted to a _role_.
 
-:warning: Keep in mind that ansible-container is a fairly new tool and using it you will _most likely_ encounter a handful of bugs. Most of them can be dealt with by correcting your environment or fetching a fresher release from GitHub, but sill you have to plan some extra time to deal with it. On the upside, once you have a working setup, everything should churn along nicely.
+:warning: Keep in mind that ansible-container is a fairly new tool and using it you will _most likely_ encounter a handful of bugs. Most of them can be dealt with by correcting your environment or fetching a more up-to-date release from GitHub, but sill you have to plan some extra time to deal with it. On the upside, once you have a working setup, everything should churn along nicely.
 
-Once you are ready, initiate the services build process by running:  
+Once you are ready, initiate the service build process by running:  
 ```ansible-container build```  
 
 :warning: If you're running with Python 3.x and you get a "NameError: name 'basestring' is not defined", try again with ```ansible-container build --use-local-python"```.
@@ -492,23 +493,64 @@ This should prepare a new docker image with your service:
 ```
 $ docker image ls  
 REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE  
-ansible-container-web         20170602154406      69ce9100a3bc        37 seconds ago      375 MB  
-ansible-container-web         latest              69ce9100a3bc        37 seconds ago      375 MB  
-ansible-container-conductor   latest              7841dc4fd05e        About an hour ago   604 MB  
+ansible-container-nodes       latest              168c0f73f78a        21 minutes ago      724 MB  
+ansible-container-web         20170602173726      168c0f73f78a        21 minutes ago      724 MB  
+ansible-container-web         latest              168c0f73f78a        21 minutes ago      724 MB  
+ansible-container-conductor   latest              9bb0a77f700f        About an hour ago   604 MB  
 python                        3                   b6cc5d70bc28        3 weeks ago         689 MB  
 centos                        7                   8140d0c64310        3 weeks ago         193 MB  
 registry                      2                   9d0c4eabab4d        3 weeks ago         33.2 MB  
 ```
 
-Now it is time to test it, run:  
-```ansible-container run```
+Time to test it, execute: ```ansible-container run```
 
-You should now have the application running at [docker-host:80](http://docker-host) (unless it is busy).
+You should now have the application running at [docker-host:80](http://docker-host) (unless it is busy).  
+Having verified that it works, you can stop it using:
+```ansible-container stop```
 
-####  Openshift
+#### Networking
 
-:warning: TODO
+Note that we did not specify any networking options this time. This is because the [container.yml](ansible-container/container.yml) does not support any network related configuration. It is a design decision which aims at leaving it to the final deployment environment, which makes sense when you look at the scale and complexity of the supported deployment engines. 
 
-####  Kubernetes
+#### Deploying a container
 
-:warning: TODO
+Currently there are three deployment engines supported:  
+* Docker  
+* [OpenShift](https://www.openshift.com/)  
+* [Kubernetes](https://kubernetes.io/)  
+
+Regardless of the chosen engine, there are two more things to do before we can deploy.  
+
+First, we have to ensure that our images will be available remotely. All engines support an external private registry (like the one we used with [Ansible playbook](#ansible-playbook-with-docker-registry) and [Docker Swarm](#docker-in-swarm-mode)), but OpenShift and Kubernetes also supply their own integrated ones.  
+It is up to you to decide what suits you best:  
+  * [Choosing a Registry for OpenShift ](https://blog.openshift.com/choosing-registry-openshift/)
+  * [Using a Private Registry with Kubernetes](https://kubernetes.io/docs/concepts/containers/images/#using-a-private-registry)
+
+Once you decide which registry you want to utilize, you should [put it down in your container.yml](#https://docs.ansible.com/ansible-container/container_yml/reference.html#registries). For example for a local private registry we could use:  
+```
+registries:  
+  my-local-registry:  
+    url: http://docker-host:5000  
+    namespace: testapp  
+    username: whoever  
+    password: whatever  
+```  
+:warning: Even if you do not have authentication enabled in your registry (and even though the documentation says "If authentication with the registry is required") you **have** to provide some credentials. Without this the next step will fail.
+
+Second, we have to push the images and prepare the deployment... wait-for-it... **playbook**! Contrary to its name, the deploy command does not really deploy anything anywhere. It only prepares a file inside a new directory called _ansible-deployment_ (you can also override its name with _--output-path_).  
+The default engine is docker:  
+```ansible-container deploy --push-to my-local-registry --output-path docker-deploy```
+
+For Kubernetes run it like this:  
+```ansible-container --engine k8s deploy --push-to my-local-registry --output-path k8s-deploy```
+
+And finally for OpenShift like this:  
+```ansible-container --engine openshift deploy --push-to my-local-registry --output-path openshift-deploy```
+
+Go ahead and have a look at the generated playbooks and roles:  
+* [Docker playbook](ansible-container/docker-deploy/ansible-container.yml)
+* [Kubernetes playbook](ansible-container/k8s-deploy/ansible-container.yml)
+* [OpenShift playbook](ansible-container/openshift-deploy/ansible-container.yml)
+
+Obviously to use them, one still has to adjust things like hostnames, authentication details etc. But possibly a lot can be also done using inventories and environment variables (including the deploy commands _--with-variables_ and _--with-volumes_ switches).  
+From my limited local tests (I do not have access to a real live Kubernetes or OpenShift instance) they seem to help get most things done and most importantly - help keep the project configuration up-to-date.

@@ -1,0 +1,84 @@
+  - gather_facts: false
+    tasks:
+      - docker_service:
+            definition:
+                services: &id001
+                    web:
+                        image: http://docker-host:5000/testapp/ansible-container-web
+                        environment:
+                            PYTHONUNBUFFERED: '1'
+                        working_dir: /project
+                        entrypoint:
+                          - python3
+                          - /project/manage.py
+                        command:
+                          - runserver
+                          - 0.0.0.0:8000
+                        ports:
+                          - 80:8000
+                    nodes:
+                        image: http://docker-host:5000/testapp/ansible-container-nodes
+                        environment:
+                            PYTHONUNBUFFERED: '1'
+                        working_dir: /project
+                        entrypoint:
+                          - python3
+                          - /project/manage.py
+                        command:
+                          - runserver
+                          - 239.255.0.42:8000
+                        ports:
+                          - 239.255.0.42:8000:8000
+                version: '2'
+            state: present
+            project_name: ansible-container
+        tags:
+          - start
+      - docker_service:
+            definition:
+                services: *id001
+                version: '2'
+            state: present
+            project_name: ansible-container
+            restarted: true
+        tags:
+          - restart
+      - docker_service:
+            definition:
+                services: *id001
+                version: '2'
+            state: present
+            project_name: ansible-container
+            stopped: true
+        tags:
+          - stop
+      - docker_service:
+            definition:
+                services: *id001
+                version: '2'
+            state: absent
+            project_name: ansible-container
+            remove_volumes: yes
+        tags:
+          - destroy
+      - docker_image:
+            state: absent
+            force: yes
+            name: ansible-container-web:20170602173726
+        tags: destroy
+      - docker_image:
+            state: absent
+            force: yes
+            name: ansible-container-web:latest
+        tags: destroy
+      - docker_image:
+            state: absent
+            force: yes
+            name: ansible-container-nodes:latest
+        tags: destroy
+      - docker_image:
+            state: absent
+            force: yes
+            name: ansible-container-conductor:latest
+        tags: destroy
+    hosts: localhost
