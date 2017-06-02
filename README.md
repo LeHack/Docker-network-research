@@ -15,6 +15,10 @@ The goal of this project was to understand the concepts behind docker networking
     * [Multiple host spanning network](#multiple-host-spanning-network)  
 4. [Configuration layer 3](#configuration-layer-3)  
 4.1. [Docker in swarm mode](#docker-in-swarm-mode)  
+    * [Swarm setup](#swarm-setup)  
+    * [Service setup](#service-setup)  
+    * [Managing swarm services](#managing-swarm-services)  
+    * [Automating Swarms](#automating-swarms)  
 4.2. [Ansible-container](#ansible-container)  
 4.3. [Openshift](#openshift)  
 4.4. [Kubernetes](#kubernetes)  
@@ -185,7 +189,7 @@ After all we have Ansible modules which can do all of it for us, in parallel, on
 Inspect the [deploy.yml](ansible-playbook/deploy.yml) and the [testing/group_vars/all](ansible-playbook/testing/group_vars/all) (remember to update the IP address). If everything looks right, just run and enjoy:  
 ```ansible-playbook -i testing deploy.yml```  
 
-:arrow_right: You can run the above command multiple times, correcting any issues as you go. Most of the modules used in the playbook can verify their current state before taking any action. Thus if a tasks goal is already met, you'll see a green "[ok]" next to it's hostname.  
+:arrow_right: You can run the above command multiple times, correcting any issues as you go. Most of the modules used in the playbook are idempotent. Thus if a tasks goal is already met, you'll see a green "[ok]" next to it's hostname.  
 
 When it's done, go to port 80 of the deployment host and verify that you see the testing page.  
 You can verify the settings using... you guessed it, Ansible!
@@ -326,6 +330,7 @@ Docker Swarm mode was developed to address the multi-host nature of most large a
 * dns/network configurations
 * resource requirements
 
+#### Swarm setup
 A swarm is actually a cluster of nodes with one or more nodes designated to be managers. Creating a simple swarm out of a number of machines sharing a common network is a very straightforward task. All you need to do is:
 1. [Setup docker to run a registry](#docker-registry).  
 This time you can run it using a [deploy-compose.yml](docker-registry/docker-compose.yml) file from within the _docker-registry_ directory:  
@@ -346,7 +351,8 @@ wquc87x7ywasg1crouoen82yd    web-back3.testing  Ready   Active
 :warning: Important quote from the docs: "For testing purposes it is OK to run a swarm with a single manager. If the manager in a single-manager swarm fails, your services will continue to run, but you will need to create a new cluster to recover."
 
 Having all this information, the swarm manager can run and manage services on itself and its nodes.
-  
+
+#### Service setup
 Following steps show an example of how to run a service:  
 :arrow_right: For this example to work (and to demonstrate resource-detection in action) update your node VMs to have a limit of 1 CPU per machine.  
 1. [Build and tag the image](#quick-introduction-to-docker)
@@ -374,9 +380,9 @@ Notice that for now the service is only available on a bridge network (quite pos
 The service should become available on [docker-host:8000](http://docker-host:8000), but it's still running on the manager node.
 One way to force it to run on one of our actual nodes is to use labels:  
 ```  
-docker node update --label-add type=worker web-back1.testing  
-docker node update --label-add type=worker web-back2.testing  
-docker node update --label-add type=worker web-back3.testing  
+$ docker node update --label-add type=worker web-back1.testing  
+$ docker node update --label-add type=worker web-back2.testing  
+$ docker node update --label-add type=worker web-back3.testing  
 $ docker node inspect web-back{1,2,3}.testing --pretty  
 ID:         ahavlc8put6r1s0oga7ro5ld8  
 Labels:  
@@ -424,6 +430,13 @@ $ docker network ls --filter driver=overlay
 NETWORK ID          NAME                DRIVER              SCOPE  
 by1b7ajrz7g8        ingress             overlay             swarm  
 ```
+
+As you can see, Docker automatically handled creating the _Overlay_ network. Be aware that it will only be present on nodes which are actually running a given service. You can of course also create your own network and tell the service to use it via the _--network_ switch, but only during _service create_.
+
+#### Managing swarm services
+
+In order to get better control over each swarm service, you can store their configuration in a _deploy-compose.yml_ file, just like plain containers. The key difference is the _deploy_ setting (only available in version 3), which controls the service deployment into the swarm and is only used when running ```docker stack deploy```. This will most likely be the preferred way as soon as _docker stacks_ and _distributed application bundles_ come out of the experimental stage.  
+Follow [this link](https://docs.docker.com/compose/bundles/#creating-a-stack-from-a-bundle) if you want to read more about this technology and try it out (it's already available in experimental builds of the docker engine).
 
 #### Automating Swarms
 
