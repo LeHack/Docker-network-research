@@ -8,6 +8,8 @@ The goal of this project was to understand the concepts behind docker networking
   * [Docker networking](#docker-networking)  
 * [Configuration layer 2](#configuration-layer-2)  
   * [Docker-compose](#docker-compose)  
+    * [Docker-compose example](#docker-compose-example)
+    * [Summary](#summary)
   * [Ansible-playbook](#ansible-playbook-with-docker-registry) (with Docker Registry)  
     * [Virtual Machine](#virtual-machine)  
     * [Docker registry](#docker-registry)  
@@ -20,8 +22,8 @@ The goal of this project was to understand the concepts behind docker networking
     * [Managing swarm services](#managing-swarm-services)  
     * [Automating Swarms](#automating-swarms)  
   * [Ansible-container](#ansible-container)  
-  * [Openshift](#openshift)  
-  * [Kubernetes](#kubernetes)  
+    * [Openshift](#openshift)  
+    * [Kubernetes](#kubernetes)  
 
 ## Quick introduction to Docker
 
@@ -438,7 +440,7 @@ Also note that the node labeling shown above is a very simple method of grouping
 
 #### Managing swarm services
 
-In order to get better control over each swarm service, you can store their configuration in a _deploy-compose.yml_ file, just like plain containers. The key difference is the _deploy_ setting (only available in version 3), which controls the service deployment into the swarm and is only used when running ```docker stack deploy```. This will most likely be the preferred way as soon as _docker stacks_ and _distributed application bundles_ come out of the experimental stage.  
+In order to get a better grip over each swarm service, you can store their configuration in a _deploy-compose.yml_ file, just like plain containers. The key difference is the _deploy_ setting (only available in version 3), which controls the service deployment into the swarm and is only used when running ```docker stack deploy```. This will most likely be the preferred way as soon as _docker stacks_ and _distributed application bundles_ come out of the experimental stage.  
 Follow [this link](https://docs.docker.com/compose/bundles/#creating-a-stack-from-a-bundle) if you want to read more about this technology and try it out (it's already available in experimental builds of the docker engine).
 
 #### Automating Swarms
@@ -449,13 +451,43 @@ Going one step back, we can easily create an Ansible playbook to automate the Sw
 
 ### Ansible-container
 
+:arrow_right: Be aware that Ansible-container has recently reached _version 0.9.1_ which introduced [a few major changes](https://www.ansible.com/blog/ansible-container-0-9). Thus this is the version I'll be talking about in this chapter (actually even 0.9.2rc0 due to a bug).
+
+OK. Remember when I called Ansible a supercharged SSH client? Well then ansible-container is a supercharged [ansible-playbook](#ansible-playbook-with-docker-registry).
+
+Ansible-container is built around the concept of **Roles**. They are basically a more developed form of playbooks describing how to build a single microservice (think _deb_ or _rpm_ packages). You can write your own or you can fetch them from the [Ansible Galaxy](https://galaxy.ansible.com/) where you can browse thousands of ready-to-use roles.  
+Once you have them, you compose your services from them.  
+Examples of production ready roles from the Ansible Galaxy:  
+- [MySQL](https://galaxy.ansible.com/bennojoy/mysql/)  
+- [NGINX](https://galaxy.ansible.com/bennojoy/nginx/)  
+- [Redis](https://galaxy.ansible.com/bennojoy/redis/)  
+- [Kerberos Server](https://galaxy.ansible.com/bennojoy/kerberos_server/)  
+- [OpenLDAP Server](https://galaxy.ansible.com/bennojoy/openldap_server/)  
+- [Network interface configuration](https://galaxy.ansible.com/bennojoy/network_interface/)  
+
+Another important distinction from the previous examples is that Ansible-container runs the whole build processes from within a separate container called "Ansible Container Conductor" (there is a docker in your docker ;)). Thus unlike before, Python does not have to be installed in the target container.
+
+#### Building a container
+
+To create an ansible container you can either start from scratch:  
+```ansible-container init``` (should be run in an empty directory)  
+or by converting your Dockerfile into a playbook, e.g.:  
+```ansible-container import path-to-Dockerfile```
+
+:warning: The import command breaks when the _ADD_ command is used with a directory. [Replace it with COPY to make it work](https://github.com/ansible/ansible-container/issues/573).
+
+We'll start with importing our test application from [docker-compose example](#docker-compose-example):  
+```ansible-container import ../docker-compose/``` (this was already run to create the contents of the [ansible-container](ansible-container) directory) 
+
+Next step is to verify that everything makes sense (e.g. after running the above import on our docker-compose example the container.yml was blank and had to be created manually). Inspect the [ansible-container/roles](ansible-container/roles) directory to see how our [Dockerfile](docker-compose/Dockerfile) was converted to a set of _roles_.
+
+:warning: Keep in mind that ansible-container is a fairly new tool and using it you will _most likely_ encounter a handful of bugs. Most of them can be dealt with by correcting your environment or fetching a fresher release from GitHub, but sill you have to plan some extra time to deal with it. On the upside, once you have a working setup, everything should churn along nicely.
+
+
+####  Openshift
+
 :warning: TODO
 
-
-###  Openshift
-
-:warning: TODO
-
-###  Kubernetes
+####  Kubernetes
 
 :warning: TODO

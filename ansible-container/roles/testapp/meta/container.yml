@@ -1,0 +1,9 @@
+from: python:3
+environment:
+  PYTHONUNBUFFERED: '1'
+working_dir: /project
+command:
+- python
+- /project/manage.py
+- runserver
+- 0.0.0.0:8000

@@ -1,0 +1,17 @@
+version: "2"
+settings:
+  conductor_base: centos:7
+services:
+  web:
+    from: centos:7
+    roles:
+      - testapp
+    ports:
+      - 8000:8000
+
+#  nodes:
+#    command: [python3, /project/manage.py, runserver, "239.255.0.42:8000"]
+#    roles:
+#      - testapp
+
+registries: {}
