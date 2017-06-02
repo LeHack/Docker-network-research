@@ -3,25 +3,25 @@
 The goal of this project was to understand the concepts behind docker networking and how multi-container, multi-host application can be managed using Docker and Ansible tools.
 
 ## Index:
-1. [Quick introduction to Docker](#quick-introduction-to-docker)
-2. [Configuration layer 1](#configuration-layer-1)  
-2.1. [Docker networking](#docker-networking)  
-3. [Configuration layer 2](#configuration-layer-2)  
-3.1. [Docker-compose](#docker-compose)  
-3.2. [Ansible-playbook](#ansible-playbook-with-docker-registry) (with Docker Registry)  
+* [Quick introduction to Docker](#quick-introduction-to-docker)
+* [Configuration layer 1](#configuration-layer-1)  
+  * [Docker networking](#docker-networking)  
+* [Configuration layer 2](#configuration-layer-2)  
+  * [Docker-compose](#docker-compose)  
+  * [Ansible-playbook](#ansible-playbook-with-docker-registry) (with Docker Registry)  
     * [Virtual Machine](#virtual-machine)  
     * [Docker registry](#docker-registry)  
     * [Deployment](#deployment)  
     * [Multiple host spanning network](#multiple-host-spanning-network)  
-4. [Configuration layer 3](#configuration-layer-3)  
-4.1. [Docker in swarm mode](#docker-in-swarm-mode)  
+* [Configuration layer 3](#configuration-layer-3)  
+  * [Docker in swarm mode](#docker-in-swarm-mode)  
     * [Swarm setup](#swarm-setup)  
     * [Service setup](#service-setup)  
     * [Managing swarm services](#managing-swarm-services)  
     * [Automating Swarms](#automating-swarms)  
-4.2. [Ansible-container](#ansible-container)  
-4.3. [Openshift](#openshift)  
-4.4. [Kubernetes](#kubernetes)  
+  * [Ansible-container](#ansible-container)  
+  * [Openshift](#openshift)  
+  * [Kubernetes](#kubernetes)  
 
 ## Quick introduction to Docker
 
