@@ -451,7 +451,7 @@ Going one step back, we can easily create an Ansible playbook to automate the Sw
 
 ### Ansible-container
 
-:arrow_right: Be aware that Ansible-container has recently reached _version 0.9.1_ which introduced [a few major changes](https://www.ansible.com/blog/ansible-container-0-9). Thus this is the version I'll be talking about in this chapter (actually even 0.9.2rc0 due to a bug).
+:arrow_right: Be aware that Ansible-container has recently reached _version 0.9.1_ which introduced [a few major changes](https://www.ansible.com/blog/ansible-container-0-9). Thus this is the version I'll be talking about in this chapter (actually even 0.9.2rc0 due to a bug I found midway, but I'd recommend trying with 0.9.1 first).
 
 OK. Remember when I called Ansible a supercharged SSH client? Well then ansible-container is a supercharged [ansible-playbook](#ansible-playbook-with-docker-registry).
 
@@ -465,7 +465,7 @@ Examples of production ready roles from the Ansible Galaxy:
 - [OpenLDAP Server](https://galaxy.ansible.com/bennojoy/openldap_server/)  
 - [Network interface configuration](https://galaxy.ansible.com/bennojoy/network_interface/)  
 
-Another important distinction from the previous examples is that Ansible-container runs the whole build processes from within a separate container called "Ansible Container Conductor" (there is a docker in your docker ;)). Thus unlike before, Python does not have to be installed in the target container.
+Another important distinction from the previous examples is that Ansible-container runs the whole build processes from within a separate container called "Ansible Container Conductor". Thus unlike before, Python does not have to be installed in the target container.
 
 #### Building a container
 
@@ -483,6 +483,27 @@ Next step is to verify that everything makes sense (e.g. after running the above
 
 :warning: Keep in mind that ansible-container is a fairly new tool and using it you will _most likely_ encounter a handful of bugs. Most of them can be dealt with by correcting your environment or fetching a fresher release from GitHub, but sill you have to plan some extra time to deal with it. On the upside, once you have a working setup, everything should churn along nicely.
 
+Once you are ready, initiate the services build process by running:  
+```ansible-container build```  
+
+:warning: If you're running with Python 3.x and you get a "NameError: name 'basestring' is not defined", try again with ```ansible-container build --use-local-python"```.
+
+This should prepare a new docker image with your service:  
+```
+$ docker image ls  
+REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE  
+ansible-container-web         20170602154406      69ce9100a3bc        37 seconds ago      375 MB  
+ansible-container-web         latest              69ce9100a3bc        37 seconds ago      375 MB  
+ansible-container-conductor   latest              7841dc4fd05e        About an hour ago   604 MB  
+python                        3                   b6cc5d70bc28        3 weeks ago         689 MB  
+centos                        7                   8140d0c64310        3 weeks ago         193 MB  
+registry                      2                   9d0c4eabab4d        3 weeks ago         33.2 MB  
+```
+
+Now it is time to test it, run:  
+```ansible-container run```
+
+You should now have the application running at [docker-host:80](http://docker-host) (unless it is busy).
 
 ####  Openshift
 

@@ -3,15 +3,19 @@ settings:
   conductor_base: centos:7
 services:
   web:
-    from: centos:7
+    ports:
+      - 80:8000
     roles:
       - testapp
+
+  nodes:
+    command: [runserver, "239.255.0.42:8000"]
     ports:
-      - 8000:8000
+      - 239.255.0.42:8000:8000
+    roles:
+      - testapp
 
-#  nodes:
-#    command: [python3, /project/manage.py, runserver, "239.255.0.42:8000"]
-#    roles:
-#      - testapp
-
-registries: {}
+registries:
+  local:
+    url: http://docker-host:5000
+    namespace: testapp-web

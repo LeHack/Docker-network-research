@@ -2,8 +2,9 @@ from: python:3
 environment:
   PYTHONUNBUFFERED: '1'
 working_dir: /project
-command:
-- python
+entrypoint:
+- python3
 - /project/manage.py
+command:
 - runserver
 - 0.0.0.0:8000
