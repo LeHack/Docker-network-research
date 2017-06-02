@@ -526,7 +526,7 @@ It is up to you to decide what suits you best:
   * [Choosing a Registry for OpenShift ](https://blog.openshift.com/choosing-registry-openshift/)
   * [Using a Private Registry with Kubernetes](https://kubernetes.io/docs/concepts/containers/images/#using-a-private-registry)
 
-Once you decide which registry you want to utilize, you should [put it down in your container.yml](#https://docs.ansible.com/ansible-container/container_yml/reference.html#registries). For example for a local private registry we could use:  
+Once you decide which registry you want to utilize, you should [put it down in your container.yml](https://docs.ansible.com/ansible-container/container_yml/reference.html#registries). For example for a local private registry we could use:  
 ```
 registries:  
   my-local-registry:  
@@ -537,7 +537,7 @@ registries:
 ```  
 :warning: Even if you do not have authentication enabled in your registry (and even though the documentation says "If authentication with the registry is required") you **have** to provide some credentials. Without this the next step will fail.
 
-Second, we have to push the images and prepare the deployment... wait-for-it... **playbook**! Contrary to its name, the deploy command does not really deploy anything anywhere. It only prepares a file inside a new directory called _ansible-deployment_ (you can also override its name with _--output-path_).  
+Second, we have to push the images and prepare the deployment ...wait-for-it... **playbook**! Contrary to its name, the deploy command does not really deploy anything anywhere. It only prepares a file inside a new directory called _ansible-deployment_ (you can also override its name with _--output-path_).  
 The default engine is docker:  
 ```ansible-container deploy --push-to my-local-registry --output-path docker-deploy```
 
@@ -552,5 +552,5 @@ Go ahead and have a look at the generated playbooks and roles:
 * [Kubernetes playbook](ansible-container/k8s-deploy/ansible-container.yml)
 * [OpenShift playbook](ansible-container/openshift-deploy/ansible-container.yml)
 
-Obviously to use them, one still has to adjust things like hostnames, authentication details etc. But possibly a lot can be also done using inventories and environment variables (including the deploy commands _--with-variables_ and _--with-volumes_ switches).  
-From my limited local tests (I do not have access to a real live Kubernetes or OpenShift instance) they seem to help get most things done and most importantly - help keep the project configuration up-to-date.
+Obviously to use them, one still has to adjust things like hostnames, authentication details etc. But possibly a lot can be also done using inventories and environment variables (including the deploy switches _--with-variables_ and _--with-volumes_).  
+From my limited local tests (I do not have access to a real live Kubernetes or OpenShift instance) they seem to help get most things done and most importantly - help keep the project configuration **up-to-date**.
