@@ -487,7 +487,7 @@ Next step is to verify that everything makes sense (e.g. after running the above
 Once you are ready, initiate the service build process by running:  
 ```ansible-container build```  
 
-:warning: If you're running with Python 3.x and you get a "NameError: name 'basestring' is not defined", try again with ```ansible-container build --use-local-python"```.
+:warning: If you're running with Python 3.x and you get a "NameError: name 'basestring' is not defined", try again with ```ansible-container build --use-local-python```.
 
 This should prepare a new docker image with your service:  
 ```
