@@ -333,10 +333,10 @@ Docker Swarm mode was developed to address the multi-host nature of most large a
 #### Swarm setup
 A swarm is actually a cluster of nodes with one or more nodes designated to be managers. Creating a simple swarm out of a number of machines sharing a common network is a very straightforward task. All you need to do is:
 1. [Setup docker to run a registry](#docker-registry).  
-This time you can run it using a [deploy-compose.yml](docker-registry/docker-compose.yml) file from within the _docker-registry_ directory:  
-```docker-compose up -d```  
+This time you can run it using a [deploy-compose.yml](docker-registry/docker-compose.yml) file from within the cd_ directory:  
+```cd docker-registry && docker-compose up -d```  
 2. run ```docker swarm init``` on the machine designated to be a manager
-3. run ```docker swarm join --token $TOKEN $MANAGER_IP:2377``` on each node (you will be provided with the join command when running init)
+3. run ```docker swarm join --token $TOKEN $MANAGER_IP:2377``` on each node (you will be provided with the join command when running step 2.)
 
 You can now inspect your cluster by issuing:  
 ```
@@ -373,8 +373,9 @@ CONTAINER ID        COMMAND                  STATUS              PORTS          
 efd0fbb2ad6e        "python3 /project/..."   Up 12 minutes                                service_example.1.vo5luctopep2k4e9v3m02ve3o   bridge  
 ccfbc104231c        "/entrypoint.sh /e..."   Up 31 minutes       0.0.0.0:5000->5000/tcp   dockerregistry_registry_1                     bridge  
 ```  
-Notice that for now the service is only available on a bridge network (quite possibly at 172.17.0.3:8000). This is because it is run locally on the manager node and doesn't need an Overlay network to be setup.  
-6. Now let's update the service to contain a port mapping and specify a CPU resource requirement:  
+Notice that for now the service is only available on a bridge network (quite possibly at 172.17.0.3:8000). This is because it is run locally on the manager node and doesn't need an Overlay network to be setup.
+
+  6. Now let's update the service to contain a port mapping and specify a CPU resource requirement:  
 ```docker service update service_example --reserve-cpu 1 --limit-cpu 1 --publish-add 8000:8000```  
 
 The service should become available on [docker-host:8000](http://docker-host:8000), but it's still running on the manager node.
@@ -404,7 +405,8 @@ Hostname:       web-back3.testing
 ```  
 Now update the service to make it run in 3 replicas on nodes that meet our new constraints and with a new port mapping:  
 ```docker service update service_example --constraint-add 'node.labels.type == worker' --publish-add 80:8000 --publish-rm 8000:8000 --replicas 3```  
-If you want to change only the replica count, there is also a shorter way to do it:  
+
+:right_arrow: If you want to change only the replica count, there is also a shorter way to do it:  
 ```docker service scale service_example=3``` 
 
 Verify that it's working as expected:  
@@ -432,6 +434,8 @@ by1b7ajrz7g8        ingress             overlay             swarm
 ```
 
 As you can see, Docker automatically handled creating the _Overlay_ network. Be aware that it will only be present on nodes which are actually running a given service. You can of course also create your own network and tell the service to use it via the _--network_ switch, but only during _service create_.
+
+Also note that the node labeling shown above is a very simple method of grouping your nodes into swarm subclusters. This allows to have a very fine-grained control over what is run where. 
 
 #### Managing swarm services
 
