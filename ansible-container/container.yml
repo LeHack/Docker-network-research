@@ -18,6 +18,5 @@ services:
 registries:
   my-local-registry:
     url: http://docker-host:5000
-    namespace: testapp
     username: whoever
     password: whatever

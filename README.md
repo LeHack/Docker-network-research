@@ -452,9 +452,15 @@ Going one step back, we can easily create an Ansible playbook to automate the Sw
 
 ### Ansible-container
 
-:arrow_right: Be aware that Ansible-container has recently reached _version 0.9.1_ which introduced [a few major changes](https://www.ansible.com/blog/ansible-container-0-9). Thus this is the version I'll be talking about in this chapter (actually even 0.9.2rc0 due to a bug I found midway, but I'd recommend trying with 0.9.1 first).
+First things first. Keep in mind that ansible-container is a fairly new tool and using it you will _most likely_ encounter a couple of bugs. Most of them can be dealt with by correcting your environment or fetching a more up-to-date release from GitHub, but still you have to plan some extra time to deal with it.  
+On the upside, below I documented solutions to the issues I encountered when writing this chapter and once you have a working setup, everything should churn along nicely.
 
-OK. Remember when I called Ansible a supercharged SSH client? Well then ansible-container is a supercharged [ansible-playbook](#ansible-playbook-with-docker-registry).
+:arrow_right: Be aware that Ansible-container has recently reached _version 0.9.1_ which introduced [a few major changes](https://www.ansible.com/blog/ansible-container-0-9). Thus this is the version I'll be talking about in this chapter (actually even 0.9.2rc0 due to [a bug I encountered midway](https://github.com/ansible/ansible-container/issues/564#issuecomment-304510127), but I'd recommend trying with the official pip release first).
+
+:warning: There is a bug when running with Python 3.x, [see this GitHub Pull Request](https://github.com/ansible/ansible-container/pull/579) for a patch which resolves it (at least until a proper fix is in place).
+
+OK, issues aside, remember when I called Ansible a supercharged SSH client?  
+Well then ansible-container is a supercharged [ansible-playbook](#ansible-playbook-with-docker-registry).
 
 It is built around the concept of **Roles**. They are basically a more developed form of playbooks describing how to build a single microservice (think _deb_ or _rpm_ packages). You can write your own or you can fetch them from the [Ansible Galaxy](https://galaxy.ansible.com/) where you can browse thousands of ready-to-use roles.  
 Once you have them, you compose your services from them.  
@@ -475,19 +481,19 @@ To create an ansible container you can either start from scratch:
 or by converting your Dockerfile into a playbook, e.g.:  
 ```ansible-container import path-to-Dockerfile```
 
-:warning: The import command breaks when the _ADD_ command is used with a directory. [Replace it with COPY to make it work](https://github.com/ansible/ansible-container/issues/573).
+:warning: The import command may break when the _ADD_ command is used with a directory. [Use a trailing slash or replace it with COPY to make it work](https://github.com/ansible/ansible-container/issues/573).
 
 We'll start with importing our test application from [docker-compose example](#docker-compose-example):  
 ```ansible-container import ../docker-compose/``` (this was already run to create the contents of the [ansible-container](ansible-container) directory) 
 
 Next step is to verify that everything makes sense (e.g. after running the above import on our docker-compose example the container.yml was blank and had to be created manually). Inspect the [ansible-container/roles](ansible-container/roles) directory to see how our [Dockerfile](docker-compose/Dockerfile) was converted to a _role_.
 
-:warning: Keep in mind that ansible-container is a fairly new tool and using it you will _most likely_ encounter a handful of bugs. Most of them can be dealt with by correcting your environment or fetching a more up-to-date release from GitHub, but sill you have to plan some extra time to deal with it. On the upside, once you have a working setup, everything should churn along nicely.
-
 Once you are ready, initiate the service build process by running:  
 ```ansible-container build```  
 
-:warning: If you're running with Python 3.x and you get a "NameError: name 'basestring' is not defined", try again with ```ansible-container build --use-local-python```.
+:warning: With Python 3.x you _may_ encounter ["Authentication or permission failure"](https://github.com/ansible/ansible-container/issues/577), try reruning the build like this: ```ansible-container build --use-local-python```.  
+
+:warning: If you run into [this issue: "linux spec user: unable to find user root"](https://github.com/ansible/ansible-container/issues/400#issuecomment-303987849) try manually pulling the python:3 image by running: ```docker image pull python:3``` and try building again.  
 
 This should prepare a new docker image with your service:  
 ```
@@ -531,7 +537,6 @@ Once you decide which registry you want to utilize, you should [put it down in y
 registries:  
   my-local-registry:  
     url: http://docker-host:5000  
-    namespace: testapp  
     username: whoever  
     password: whatever  
 ```  
@@ -539,18 +544,33 @@ registries:
 
 Second, we have to push the images and prepare the deployment ...wait-for-it... **playbook**! Contrary to its name, the deploy command does not really deploy anything anywhere. It only prepares a file inside a new directory called _ansible-deployment_ (you can also override its name with _--output-path_).  
 The default engine is docker:  
-```ansible-container deploy --push-to my-local-registry --output-path docker-deploy```
+```ansible-container deploy --push-to my-local-registry --output-path docker-deploy --tag v1```
 
 For Kubernetes run it like this:  
-```ansible-container --engine k8s deploy --push-to my-local-registry --output-path k8s-deploy```
+```ansible-container --engine k8s deploy --push-to my-local-registry --output-path k8s-deploy --tag v1```
 
 And finally for OpenShift like this:  
-```ansible-container --engine openshift deploy --push-to my-local-registry --output-path openshift-deploy```
+```ansible-container --engine openshift deploy --push-to my-local-registry --output-path openshift-deploy --tag v1```
 
 Go ahead and have a look at the generated playbooks and roles:  
 * [Docker playbook](ansible-container/docker-deploy/ansible-container.yml)
 * [Kubernetes playbook](ansible-container/k8s-deploy/ansible-container.yml)
 * [OpenShift playbook](ansible-container/openshift-deploy/ansible-container.yml)
 
-Obviously to use them, one still has to adjust things like hostnames, authentication details etc. But possibly a lot can be also done using inventories and environment variables (including the deploy switches _--with-variables_ and _--with-volumes_).  
+:arrow_right: The &id001 and \*id001 is just YAML reference notation (*X are pointers to structures marked with &X).  
+
+Obviously to use them, one still has to adjust things like host names, authentication details etc. But possibly a lot can be also done using inventories and environment variables (including the deploy switches _--with-variables_ and _--with-volumes_).  
 From my limited local tests (I do not have access to a real live Kubernetes or OpenShift instance) they seem to help get most things done and most importantly - help keep the project configuration **up-to-date**.
+
+Following is an example of how to use the Docker deployment playbook:
+* Create a hosts inventory file with the hosts you want to deploy to, e.g.:  
+```echo "docker-host" > hosts```  
+* Update the generated playbook:  
+    * remove the protocol part from image names and append the tag to them ([see reported bug](https://github.com/ansible/ansible-container/issues/578))  
+    * update hosts (e.g. "all" will run will all hosts defined in the inventory file)  
+* To deploy the service run:  
+```ansible-playbook -i hosts docker-deploy/ansible-container.yml -t start```  
+* To stop/restart the service run:  
+```ansible-playbook -i hosts docker-deploy/ansible-container.yml -t [stop|restart]```  
+* To completely remove the service and associated image/container files run:  
+```ansible-playbook -i hosts docker-deploy/ansible-container.yml -t destroy```  

@@ -4,7 +4,7 @@
             definition:
                 services: &id001
                     web:
-                        image: http://docker-host:5000/testapp/ansible-container-web
+                        image: docker-host:5000/ansible-container/ansible-container-web:v1
                         environment:
                             PYTHONUNBUFFERED: '1'
                         working_dir: /project
@@ -17,7 +17,7 @@
                         ports:
                           - 80:8000
                     nodes:
-                        image: http://docker-host:5000/testapp/ansible-container-nodes
+                        image: docker-host:5000/ansible-container/ansible-container-nodes:v1
                         environment:
                             PYTHONUNBUFFERED: '1'
                         working_dir: /project
@@ -28,7 +28,7 @@
                           - runserver
                           - 239.255.0.42:8000
                         ports:
-                          - 239.255.0.42:8000:8000
+                          - 8000:8000
                 version: '2'
             state: present
             project_name: ansible-container
@@ -64,7 +64,7 @@
       - docker_image:
             state: absent
             force: yes
-            name: ansible-container-web:20170602173726
+            name: ansible-container-web:20170603180431
         tags: destroy
       - docker_image:
             state: absent
